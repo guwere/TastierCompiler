@@ -1,0 +1,19 @@
+
+// This is a test program which can be compiled by the Taste-compiler.
+// It reads a sequence of numbers and computes the sum of all integers 
+// up to these numbers.
+
+program Tastier {
+	void Main() {
+
+	const u := 3;
+	write  u;
+    string hello;
+	const world := "World!";
+	hello := "Hello";
+	write hello , world , " Give me high " , 5;
+    if( 3 != 4) { write "yes";}
+    }
+}
+
+ 
