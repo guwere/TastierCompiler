@@ -58,18 +58,18 @@ public class SymbolTable {
 
 
 	public void CloseScope () {
-		Console.WriteLine("Closing the Scope of :" + topScope.name); // AN
+		//Console.WriteLine("Closing the Scope of :" + topScope.name); // AN
 		Obj temp = topScope.locals;
 		topScope = topScope.next; curLevel--;
 
 		//-------------------------------------------AN------------------------------
 		while(temp != null){
-			Console.WriteLine(	"(name: " + temp.name + 
-						")\t(kind: " + kinds[temp.kind] + 
-						")\t(type: "  + types[temp.type] +  
-						")\t(level: " + levels[temp.level] +
-						")\t(mutability: " + is_mutable[temp.mutability] + 
-						")\t(addr: " + temp.adr+")");
+			Console.WriteLine( temp.name + 
+						"\t| " + kinds[temp.kind] + 
+						"\t| " + types[temp.type] +  
+						"\t| " + levels[temp.level] +
+						"\t| " + is_mutable[temp.mutability] + 
+						"\t| " + temp.adr);
 			temp = temp.next;
 		}
 		//END-------------------------------------------AN------------------------------

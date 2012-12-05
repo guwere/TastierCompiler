@@ -5,15 +5,14 @@
 
 program Tastier {
 	void Main() {
-
-	const u := 3;
-	write  u;
-    string hello;
-	const world := "World!";
-	hello := "Hello";
-	write hello , world , " Give me high " , 5;
-    if( 3 != 4) { write "yes";}
-    }
+        int c,i;
+        for (i := 10; i := i - 1; i > 0){
+            write i;
+        }
+        if(2>1){ write "yes";}
+        c := 2>1 ? 3 : 4;
+        write c;
+       }
 }
 
  

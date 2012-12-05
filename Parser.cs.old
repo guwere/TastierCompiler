@@ -10,7 +10,7 @@ public class Parser {
 	public const int _ident = 1;
 	public const int _number = 2;
 	public const int _string = 3;
-	public const int maxT = 37;
+	public const int maxT = 36;
 
 	const bool T = true;
 	const bool x = false;
@@ -101,7 +101,7 @@ const int // types
 		} else if (la.kind == 5) {
 			Get();
 			op = Op.SUB; 
-		} else SynErr(38);
+		} else SynErr(37);
 	}
 
 	void ConstVarDecl() {
@@ -177,7 +177,7 @@ const int // types
 			op = Op.GTE; 
 			break;
 		}
-		default: SynErr(39); break;
+		default: SynErr(38); break;
 		}
 	}
 
@@ -225,7 +225,7 @@ const int // types
 			s = t.val; gen.EmitStr(s); type = str; 
 			break;
 		}
-		default: SynErr(40); break;
+		default: SynErr(39); break;
 		}
 	}
 
@@ -236,7 +236,7 @@ const int // types
 		} else if (la.kind == 12) {
 			Get();
 			op = Op.DIV; 
-		} else SynErr(41);
+		} else SynErr(40);
 	}
 
 	void ProcDecl() {
@@ -257,7 +257,7 @@ const int // types
 		while (StartOf(2)) {
 			if (la.kind == 6) {
 				ConstVarDecl();
-			} else if (la.kind == 34 || la.kind == 35 || la.kind == 36) {
+			} else if (la.kind == 33 || la.kind == 34 || la.kind == 35) {
 				VarDecl();
 			} else if (StartOf(3)) {
 				Stat();
@@ -281,7 +281,7 @@ const int // types
 		Type(out type);
 		Ident(out name);
 		tab.NewObj(name, var, type); 
-		while (la.kind == 32) {
+		while (la.kind == 31) {
 			Get();
 			Ident(out name);
 			tab.NewObj(name, var, type); 
@@ -310,31 +310,17 @@ const int // types
 					Get();
 					if(type != boolean) SemErr("Expecting boolean condition");
 					gen.Emit(Op.FJMP,0); adr = gen.pc - 2;
-					Expr(out type1);
-					if(obj.type != type1) SemErr("incompatible types2");
-					gen.Emit(Op.JMP,0); gen.Patch(adr,gen.pc);adr = gen.pc - 2;
-					if (type1 != obj.type) SemErr("incompatible types3");
-					if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-					else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
-					Expect(25);
-					Expr(out type2);
-					if(obj.type != type2) SemErr("incompatible types4");
-					gen.Patch(adr,gen.pc);
-					if (type2 != obj.type) SemErr("incompatible types5");
-					if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-					else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
-					Expect(8);
-				} else SynErr(42);
+				} else SynErr(41);
 			} else if (la.kind == 14) {
 				Get();
 				Expect(15);
 				Expect(8);
 				if (obj.kind != proc) SemErr("object is not a procedure");
 				  gen.Emit(Op.CALL, obj.level-tab.curLevel, obj.adr); 
-			} else SynErr(43);
+			} else SynErr(42);
 			break;
 		}
-		case 26: {
+		case 25: {
 			Get();
 			Expect(14);
 			Expr(out type);
@@ -342,7 +328,7 @@ const int // types
 			if (type != boolean) SemErr("boolean type expected");
 			  gen.Emit(Op.FJMP, 0); adr = gen.pc - 2; 
 			Stat();
-			if (la.kind == 27) {
+			if (la.kind == 26) {
 				Get();
 				gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2;
 				gen.Patch(adr, gen.pc); adr = adr2; 
@@ -351,7 +337,7 @@ const int // types
 			gen.Patch(adr, gen.pc); 
 			break;
 		}
-		case 28: {
+		case 27: {
 			Get();
 			loopstart = gen.pc; 
 			Expect(14);
@@ -363,7 +349,7 @@ const int // types
 			gen.Emit(Op.JMP, loopstart); gen.Patch(adr, gen.pc); 
 			break;
 		}
-		case 29: {
+		case 28: {
 			Get();
 			Expect(14);
 			Ident(out name);
@@ -393,7 +379,7 @@ const int // types
 			Expect(17);
 			break;
 		}
-		case 30: {
+		case 29: {
 			Get();
 			Ident(out name);
 			Expect(8);
@@ -405,13 +391,13 @@ const int // types
 			  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
 			break;
 		}
-		case 31: {
+		case 30: {
 			Get();
 			Expr(out type);
 			if(type == str) gen.Emit(Op.SWRITE);					//AN
 			    else if(type == integer) gen.Emit(Op.WRITE);		//AN
 			else SemErr("expected type int or string"); 
-			while (la.kind == 32) {
+			while (la.kind == 31) {
 				Get();
 				Expr(out type);
 				if(type == str) gen.Emit(Op.SWRITE); 					//AN
@@ -427,7 +413,7 @@ const int // types
 			while (StartOf(4)) {
 				if (StartOf(3)) {
 					Stat();
-				} else if (la.kind == 34 || la.kind == 35 || la.kind == 36) {
+				} else if (la.kind == 33 || la.kind == 34 || la.kind == 35) {
 					VarDecl();
 				} else {
 					ConstVarDecl();
@@ -436,7 +422,7 @@ const int // types
 			Expect(17);
 			break;
 		}
-		default: SynErr(44); break;
+		default: SynErr(43); break;
 		}
 	}
 
@@ -454,14 +440,14 @@ const int // types
 
 	void Tastier() {
 		string name; 
-		Expect(33);
+		Expect(32);
 		Ident(out name);
 		tab.OpenScope(name); 
 		Expect(16);
 		while (StartOf(5)) {
 			if (la.kind == 6) {
 				ConstVarDecl();
-			} else if (la.kind == 34 || la.kind == 35 || la.kind == 36) {
+			} else if (la.kind == 33 || la.kind == 34 || la.kind == 35) {
 				VarDecl();
 			} else {
 				ProcDecl();
@@ -475,16 +461,16 @@ const int // types
 
 	void Type(out int type) {
 		type = undef; 
-		if (la.kind == 34) {
+		if (la.kind == 33) {
 			Get();
 			type = integer; 
-		} else if (la.kind == 35) {
+		} else if (la.kind == 34) {
 			Get();
 			type = boolean; 
-		} else if (la.kind == 36) {
+		} else if (la.kind == 35) {
 			Get();
 			type = str; 
-		} else SynErr(45);
+		} else SynErr(44);
 	}
 
 
@@ -499,12 +485,12 @@ const int // types
 	}
 	
 	static readonly bool[,] set = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, T,T,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x},
-		{x,T,x,x, x,x,T,x, x,x,x,x, x,T,x,x, T,x,x,x, x,x,x,x, x,x,T,x, T,T,T,T, x,x,T,T, T,x,x},
-		{x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,x, T,T,T,T, x,x,x,x, x,x,x},
-		{x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,x, T,T,T,T, x,x,T,T, T,x,x},
-		{x,x,x,x, x,x,T,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, T,x,x}
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, T,T,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
+		{x,T,x,x, x,x,T,x, x,x,x,x, x,T,x,x, T,x,x,x, x,x,x,x, x,T,x,T, T,T,T,x, x,T,T,T, x,x},
+		{x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,T,x,T, T,T,T,x, x,x,x,x, x,x},
+		{x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,T,x,T, T,T,T,x, x,T,T,T, x,x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,T, x,x}
 
 	};
 } // end Parser
@@ -543,27 +529,26 @@ public class Errors {
 			case 22: s = "\"<=\" expected"; break;
 			case 23: s = "\">=\" expected"; break;
 			case 24: s = "\"?\" expected"; break;
-			case 25: s = "\":\" expected"; break;
-			case 26: s = "\"if\" expected"; break;
-			case 27: s = "\"else\" expected"; break;
-			case 28: s = "\"while\" expected"; break;
-			case 29: s = "\"for\" expected"; break;
-			case 30: s = "\"read\" expected"; break;
-			case 31: s = "\"write\" expected"; break;
-			case 32: s = "\",\" expected"; break;
-			case 33: s = "\"program\" expected"; break;
-			case 34: s = "\"int\" expected"; break;
-			case 35: s = "\"bool\" expected"; break;
-			case 36: s = "\"string\" expected"; break;
-			case 37: s = "??? expected"; break;
-			case 38: s = "invalid AddOp"; break;
-			case 39: s = "invalid RelOp"; break;
-			case 40: s = "invalid Factor"; break;
-			case 41: s = "invalid MulOp"; break;
+			case 25: s = "\"if\" expected"; break;
+			case 26: s = "\"else\" expected"; break;
+			case 27: s = "\"while\" expected"; break;
+			case 28: s = "\"for\" expected"; break;
+			case 29: s = "\"read\" expected"; break;
+			case 30: s = "\"write\" expected"; break;
+			case 31: s = "\",\" expected"; break;
+			case 32: s = "\"program\" expected"; break;
+			case 33: s = "\"int\" expected"; break;
+			case 34: s = "\"bool\" expected"; break;
+			case 35: s = "\"string\" expected"; break;
+			case 36: s = "??? expected"; break;
+			case 37: s = "invalid AddOp"; break;
+			case 38: s = "invalid RelOp"; break;
+			case 39: s = "invalid Factor"; break;
+			case 40: s = "invalid MulOp"; break;
+			case 41: s = "invalid Stat"; break;
 			case 42: s = "invalid Stat"; break;
 			case 43: s = "invalid Stat"; break;
-			case 44: s = "invalid Stat"; break;
-			case 45: s = "invalid Type"; break;
+			case 44: s = "invalid Type"; break;
 
 			default: s = "error " + n; break;
 		}

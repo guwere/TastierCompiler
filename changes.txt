@@ -1,0 +1,79 @@
+commit 1ebdb2e18432325126d6be10befc9d1aa1d55b8d
+Author: Antonio Nikolov <nikolova@tcd.ie>
+Date:   Wed Nov 28 13:25:49 2012 +0000
+
+    AB orig
+
+diff --git a/TastierEBNF.html b/TastierEBNF.html
+index f4dabe9..a10d7c8 100755
+--- a/TastierEBNF.html
++++ b/TastierEBNF.html
+@@ -2,23 +2,22 @@ EBNF Grammar of Tastier
+ 
+    
+ Taste =      "program" ident "{" {VarDecl} {ProcDecl} "}".
+-ConstVarDecl = "const" ident ":=" Expr ";". //AN
+ VarDecl =    Type ident {"," ident} ";".
+-ProcDecl =   "void" ident "(" ")" "{" {VarDecl | Stat | ProcDecl} "}". //AN
+-Type =       "int" | "bool | string". //AN
++ProcDecl =   "void" ident "(" ")" "{" {VarDecl | Stat | ProcDecl} "}".
++Type =       "int" | "bool".
+ 
+-Stat =       ident (":=" Expr ";" | "(" ")" ";")
++Stat =       ident ("=" Expr ";" | "(" ")" ";")
+            | "if" "(" Expr ")" Stat ["else" Stat]
+            | "while "(" Expr ")" Stat
+            | "read" ident ";"
+-           | "write" Expr { "++" Expr} ";" //AN
+-           | "{" {Stat | VarDecl | ConstVarDecl} "}". //AN
++           | "write" Expr ";"
++           | "{" {Stat | VarDecl} "}".
+ 
+ Expr =       SimExpr [RelOp SimExpr].
+ SimExpr =    Term {AddOp Term}.
+ Term =       Factor {MulOp Factor}.
+-Factor =     (ident | "true" | "false" | number | "-" Factor | string). //AN
++Factor =     (ident | "true" | "false" | number | "-" Factor).
+ 
+ AddOp =      "+" | "-".
+ MulOp =      "*" | "/".
+-RelOp =      "=" | "<" | ">" | "!=" | "<=" | ">=". //AN
++RelOp =      "==" | "<" | ">".
+\ No newline at end of file
+
+commit c5680baba4782641d1e021805bdcbfc3c9f8e14e
+Author: Antonio Nikolov <nikolova@tcd.ie>
+Date:   Wed Nov 28 11:30:18 2012 +0000
+
+    with strings
+
+diff --git a/TastierEBNF.html b/TastierEBNF.html
+new file mode 100755
+index 0000000..f4dabe9
+--- /dev/null
++++ b/TastierEBNF.html
+@@ -0,0 +1,24 @@
++EBNF Grammar of Tastier
++
++   
++Taste =      "program" ident "{" {VarDecl} {ProcDecl} "}".
++ConstVarDecl = "const" ident ":=" Expr ";". //AN
++VarDecl =    Type ident {"," ident} ";".
++ProcDecl =   "void" ident "(" ")" "{" {VarDecl | Stat | ProcDecl} "}". //AN
++Type =       "int" | "bool | string". //AN
++
++Stat =       ident (":=" Expr ";" | "(" ")" ";")
++           | "if" "(" Expr ")" Stat ["else" Stat]
++           | "while "(" Expr ")" Stat
++           | "read" ident ";"
++           | "write" Expr { "++" Expr} ";" //AN
++           | "{" {Stat | VarDecl | ConstVarDecl} "}". //AN
++
++Expr =       SimExpr [RelOp SimExpr].
++SimExpr =    Term {AddOp Term}.
++Term =       Factor {MulOp Factor}.
++Factor =     (ident | "true" | "false" | number | "-" Factor | string). //AN
++
++AddOp =      "+" | "-".
++MulOp =      "*" | "/".
++RelOp =      "=" | "<" | ">" | "!=" | "<=" | ">=". //AN

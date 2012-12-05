@@ -7,12 +7,14 @@ VarDecl =    Type ident {"," ident} ";".
 ProcDecl =   "void" ident "(" ")" "{" {VarDecl | Stat | ProcDecl} "}". //AN
 Type =       "int" | "bool | string". //AN
 
-Stat =       ident (":=" Expr ";" | "(" ")" ";")
+Stat =      
+              ident (":=" Expr ( ";" | "?" Expr ":" Expr ";" )  | "(" ")" ";")
            | "if" "(" Expr ")" Stat ["else" Stat]
            | "while "(" Expr ")" Stat
+           | "for" "("ident ":="  Expr ";" ident ":=" Expr ";" Expr ")" "{" Stat "}"   
            | "read" ident ";"
            | "write" Expr { "++" Expr} ";" //AN
-           | "{" {Stat | VarDecl | ConstVarDecl} "}". //AN
+           | "{" {Stat | VarDecl | ConstVarDecl} "}"). //AN
 
 Expr =       SimExpr [RelOp SimExpr].
 SimExpr =    Term {AddOp Term}.

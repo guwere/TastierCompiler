@@ -105,6 +105,9 @@ ProcDecl                 (. string name; Obj obj; int adr, adr2; .)         //
   }                                                                         // 
   '}'                    (. gen.Emit(Op.LEAVE); gen.Emit(Op.RET);
                             gen.Patch(adr, tab.topScope.nextAdr);
+
+                            Console.WriteLine("name\t|kind\t|type\t|lev\t|mut\t|addr");
+                            Console.WriteLine("----------------------------------------------");
                             tab.CloseScope(); .).
 /*------------------------------------------------------------------------*/
 RelOp<out Op op>
@@ -125,15 +128,33 @@ SimExpr<out int type>    (. int type1; Op op; .)
                             gen.Emit(op); .)
   }.
 /*------------------------------------------------------------------------*/
-Stat                     	(. int type; string name; Obj obj;
+Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
 								int adr, adr2, loopstart; .)
 = Ident<out name>        	(. obj = tab.Find(name); .)
   ( ":="                  	(. if (obj.kind != var) SemErr("cannot assign to procedure");	//AN
 							 if (obj.mutability == immutable) SemErr("cannot reassign constant variable"); .)	//AN
-    Expr<out type> ';'
-                         (. if (type != obj.type) SemErr("incompatible types");
+    Expr<out type> 
+    (';'                 (. if (type != obj.type) SemErr("incompatible types1");
                             if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-                               else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .) // 
+                               else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .) 
+    | "?"                (.if(type != boolean) SemErr("Expecting boolean condition");
+                         gen.Emit(Op.FJMP,0); adr = gen.pc - 2;.)
+    Expr<out type1>    (.if(obj.type != type1) SemErr("incompatible types2");
+                         gen.Emit(Op.JMP,0); gen.Patch(adr,gen.pc);adr = gen.pc - 2;
+                         if (type1 != obj.type) SemErr("incompatible types3");
+                         if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+                         else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .) 
+    ":"
+    Expr<out type2>     (.if(obj.type != type2) SemErr("incompatible types4");
+                         gen.Patch(adr,gen.pc);
+                         if (type2 != obj.type) SemErr("incompatible types5");
+                         if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+                         else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .) 
+    ";")
+  
+
+    
+
   | '(' ')' ';'          (. if (obj.kind != proc) SemErr("object is not a procedure");
                                gen.Emit(Op.CALL, obj.level-tab.curLevel, obj.adr); .)     // 
   )
@@ -151,6 +172,23 @@ Stat                     	(. int type; string name; Obj obj;
   '(' Expr<out type> ')' (. if (type != boolean) SemErr("boolean type expected");
                                gen.Emit(Op.FJMP, 0); adr = gen.pc - 2; .)
       Stat               (. gen.Emit(Op.JMP, loopstart); gen.Patch(adr, gen.pc); .)
+
+| "for"                 
+  "(" Ident<out name>    (. obj = tab.Find(name); .)
+   ":=" Expr<out type> ";" (.if(type != obj.type) SemErr("incompatible types");
+                             if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+                             else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
+                                loopstart = gen.pc;.)
+   Ident<out name>       (.obj2 = tab.Find(name); .)  
+   ":=" Expr<out type1> ";"     (. if(type1 != obj2.type) SemErr("incompatible types");
+                                  if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+                                  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .)
+   Expr<out type2>      (.if(type2 != boolean) SemErr("expecting boolean conditional");
+                            gen.Emit(Op.FJMP,0); adr = gen.pc - 2;.)
+ 
+   ")" "{"
+   Stat                     (.gen.Emit(Op.JMP,loopstart); gen.Patch(adr,gen.pc); .)
+   "}"
 
 | "read"
   Ident<out name> ';'    (. obj = tab.Find(name);
