@@ -203,8 +203,8 @@ public class UTF8Buffer: Buffer {
 public class Scanner {
 	const char EOL = '\n';
 	const int eofSym = 0; /* pdt */
-	const int maxT = 37;
-	const int noSym = 37;
+	const int maxT = 44;
+	const int noSym = 44;
 
 
 	public Buffer buffer; // scanner buffer
@@ -232,20 +232,22 @@ public class Scanner {
 		start[34] = 3; 
 		start[43] = 5; 
 		start[45] = 6; 
-		start[58] = 22; 
-		start[59] = 8; 
-		start[42] = 9; 
-		start[47] = 10; 
-		start[40] = 11; 
-		start[41] = 12; 
-		start[123] = 13; 
-		start[125] = 14; 
-		start[61] = 15; 
-		start[60] = 23; 
-		start[62] = 24; 
-		start[33] = 16; 
-		start[63] = 20; 
-		start[44] = 21; 
+		start[91] = 7; 
+		start[93] = 8; 
+		start[59] = 9; 
+		start[58] = 24; 
+		start[42] = 11; 
+		start[47] = 12; 
+		start[40] = 13; 
+		start[41] = 14; 
+		start[123] = 15; 
+		start[125] = 16; 
+		start[61] = 17; 
+		start[60] = 25; 
+		start[62] = 26; 
+		start[33] = 18; 
+		start[63] = 22; 
+		start[44] = 23; 
 		start[Buffer.EOF] = -1;
 
 	}
@@ -358,20 +360,25 @@ public class Scanner {
 
 	void CheckLiteral() {
 		switch (t.val) {
-			case "const": t.kind = 6; break;
-			case "true": t.kind = 9; break;
-			case "false": t.kind = 10; break;
-			case "void": t.kind = 13; break;
-			case "if": t.kind = 26; break;
-			case "else": t.kind = 27; break;
-			case "while": t.kind = 28; break;
-			case "for": t.kind = 29; break;
-			case "read": t.kind = 30; break;
-			case "write": t.kind = 31; break;
-			case "program": t.kind = 33; break;
-			case "int": t.kind = 34; break;
-			case "bool": t.kind = 35; break;
-			case "string": t.kind = 36; break;
+			case "array": t.kind = 6; break;
+			case "const": t.kind = 10; break;
+			case "true": t.kind = 12; break;
+			case "false": t.kind = 13; break;
+			case "void": t.kind = 16; break;
+			case "switch": t.kind = 27; break;
+			case "case": t.kind = 28; break;
+			case "break": t.kind = 30; break;
+			case "default": t.kind = 31; break;
+			case "if": t.kind = 33; break;
+			case "else": t.kind = 34; break;
+			case "while": t.kind = 35; break;
+			case "for": t.kind = 36; break;
+			case "read": t.kind = 37; break;
+			case "write": t.kind = 38; break;
+			case "program": t.kind = 40; break;
+			case "int": t.kind = 41; break;
+			case "bool": t.kind = 42; break;
+			case "string": t.kind = 43; break;
 			default: break;
 		}
 	}
@@ -425,44 +432,48 @@ public class Scanner {
 			case 8:
 				{t.kind = 8; break;}
 			case 9:
-				{t.kind = 11; break;}
+				{t.kind = 9; break;}
 			case 10:
-				{t.kind = 12; break;}
+				{t.kind = 11; break;}
 			case 11:
 				{t.kind = 14; break;}
 			case 12:
 				{t.kind = 15; break;}
 			case 13:
-				{t.kind = 16; break;}
-			case 14:
 				{t.kind = 17; break;}
-			case 15:
+			case 14:
 				{t.kind = 18; break;}
+			case 15:
+				{t.kind = 19; break;}
 			case 16:
-				if (ch == '=') {AddCh(); goto case 17;}
-				else {goto case 0;}
+				{t.kind = 20; break;}
 			case 17:
 				{t.kind = 21; break;}
 			case 18:
-				{t.kind = 22; break;}
-			case 19:
-				{t.kind = 23; break;}
-			case 20:
-				{t.kind = 24; break;}
-			case 21:
-				{t.kind = 32; break;}
-			case 22:
-				recEnd = pos; recKind = 25;
-				if (ch == '=') {AddCh(); goto case 7;}
-				else {t.kind = 25; break;}
-			case 23:
-				recEnd = pos; recKind = 19;
-				if (ch == '=') {AddCh(); goto case 18;}
-				else {t.kind = 19; break;}
-			case 24:
-				recEnd = pos; recKind = 20;
 				if (ch == '=') {AddCh(); goto case 19;}
-				else {t.kind = 20; break;}
+				else {goto case 0;}
+			case 19:
+				{t.kind = 24; break;}
+			case 20:
+				{t.kind = 25; break;}
+			case 21:
+				{t.kind = 26; break;}
+			case 22:
+				{t.kind = 32; break;}
+			case 23:
+				{t.kind = 39; break;}
+			case 24:
+				recEnd = pos; recKind = 29;
+				if (ch == '=') {AddCh(); goto case 10;}
+				else {t.kind = 29; break;}
+			case 25:
+				recEnd = pos; recKind = 22;
+				if (ch == '=') {AddCh(); goto case 20;}
+				else {t.kind = 22; break;}
+			case 26:
+				recEnd = pos; recKind = 23;
+				if (ch == '=') {AddCh(); goto case 21;}
+				else {t.kind = 23; break;}
 
 		}
 		t.val = new String(tval, 0, tlen);

@@ -13,11 +13,12 @@ public class Obj {  // object describing a declared name
 	public Obj locals;		// scopes: to locally declared objects
 	public int nextAdr;		// scopes: next free address in this scope
 	public int mutability; //AN constant or non-constant
+    public int dimN;
 }
 
 public class SymbolTable {
 	string [] types = new string [4]  {"Undef","Integer","Bool","String"};
-	string [] kinds = new string [3] {"Var" ,"Proc" ,"Scope"};
+	string [] kinds = new string [4] {"Var" ,"Proc" ,"Scope","Array"};
 	string [] levels = new string [2] {"Global" ," Local"};
 	string [] is_mutable= new string [2] {"Mutable" ," Constant"};
 
@@ -25,17 +26,19 @@ public class SymbolTable {
 		undef = 0, integer = 1, boolean = 2, str = 3;
 
 	const int // object kinds
-		var = 0, proc = 1, scope = 2;
+		var = 0, proc = 1, scope = 2,arr = 3;
 	const int
 		immutable = 1 , mutable = 0;
 
-
+    
 	public int curLevel;	// nesting level of current scope
 	public Obj undefObj;	// object node for erroneous symbols
 	public Obj topScope;	// topmost procedure scope
 
 	Parser parser;
-	
+    int unused;
+    public int nextUnused(){return unused++;}
+
 	public SymbolTable(Parser parser) {
 		this.parser = parser;
 		topScope = null;
@@ -86,7 +89,7 @@ public class SymbolTable {
 			last = p; p = p.next;
 		}
 		if (last == null) topScope.locals = obj; else last.next = obj;
-		if (kind == var) {
+		if (kind == var || kind == arr) {
 		    obj.adr = topScope.nextAdr++;
 		    obj.mutability = mutable; //assume variables are not constant by default
 		}

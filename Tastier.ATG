@@ -4,7 +4,7 @@ COMPILER Tastier //
       undef = 0, integer = 1, boolean = 2,str = 3;
 
    const int // object kinds
-      var = 0, proc = 1;
+      var = 0, proc = 1 , scope = 2 , arr = 3;
   const int 
       mutable = 0, immutable = 1;
 
@@ -43,6 +43,22 @@ AddOp<out Op op>
   | '-'                  (. op = Op.SUB; .)
   ).
 /*----------------------------------//AN------------------------------------*/
+ArrayDecl                        (. int type; string name;Obj obj;int dim = 0; .) 
+= "array" 
+    Type<out type>               (.if(type != integer)SemErr("array must be of int type"); .)
+    Ident<out name>              (. obj = tab.NewObj(name,arr,integer); .)
+
+    "[" Expr<out type> "]"       (. if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .)
+    { "[" Expr<out type> "]"     (. if(type != integer)SemErr("array index must be of int type");
+                                    dim++; .)
+    } ";"                       (. gen.Emit(Op.HPTR); 
+                                    if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+                                        else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
+                                    gen.Emit(Op.HPTR);
+                                    gen.Emit(Op.ALLOCARR,dim);  obj.dimN = dim; .)
+.
+/*----------------------------------//AN------------------------------------*/
 ConstVarDecl			(. string name; int type; Obj obj; .)
 = "const" Ident<out name>	(. obj = tab.NewConstVar(name);  .)
 	":=" 
@@ -58,14 +74,24 @@ Expr<out int type>       (. int type1; Op op; .)
                             gen.Emit(op); type = boolean; .)
   ].
 /*------------------------------------------------------------------------*/
-Factor<out int type>     (. int n; Obj obj; string name; string s; .)
+Factor<out int type>     (. int n; Obj obj; string name; string s;int dim = 0; .)
 =                        (. type = undef; .)
   ( Ident<out name>      (. obj = tab.Find(name); type = obj.type;
-                            if (obj.kind == var) {
-                               if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
-//                                else gen.Emit(Op.LOAD, obj.adr);                            ***
-                                  else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); // 
-                            } else SemErr("variable expected"); .)
+                            if (obj.kind != var && obj.kind != arr)SemErr("var or arr expexted"); .) 
+                                
+    [ "[" Expr<out type> "]"   (.if(type != integer)SemErr("integer type expected"); dim++;.)
+      { "[" Expr<out type> "]"   (.if(type != integer)SemErr("integer type expected"); dim++;.)
+        }
+                            (.if(dim != obj.dimN){ 
+                                    Console.WriteLine("declared dim = " + obj.dimN  );
+                                    Console.WriteLine("accessed dim = " + dim);
+                                    SemErr("dimension of array does not match");
+                               }.)
+    ]
+                            (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
+                                  else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+                              if(obj.kind == arr )gen.Emit(Op.ACCARR);.)
+    
   | number               (. n = Convert.ToInt32(t.val); 
                             gen.Emit(Op.CONST, n); type = integer; .)
   | '-'
@@ -99,7 +125,7 @@ ProcDecl                 (. string name; Obj obj; int adr, adr2; .)         //
                             tab.OpenScope(name); .)
   '(' ')'
   '{'                    (. gen.Emit(Op.ENTER, 0); adr = gen.pc - 2; .)
-  { ConstVarDecl | VarDecl | Stat |     									 //AN
+  { ConstVarDecl | VarDecl | Stat | ArrayDecl   | 									 //AN
 			  (. gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2; .)      // 
     ProcDecl             (. gen.Patch(adr2, gen.pc); .)                     // 
   }                                                                         // 
@@ -127,11 +153,56 @@ SimExpr<out int type>    (. int type1; Op op; .)
                                SemErr("integer type expected");
                             gen.Emit(op); .)
   }.
+
+/*------------------------------------------------------------------------*/
+Switch                          (.int type,type1,caseaddr;
+                                    Obj dummy = tab.NewObj("sw" + tab.nextUnused(),0,undef);
+                                    System.Collections.Generic.List<int> breakaddrs
+                                    = new System.Collections.Generic.List<int>();.)
+= "switch" 
+    "(" Expr<out type> ")"       (.if(type != integer) SemErr("must have int type in case expr");
+                                    if (dummy.level == 0) gen.Emit(Op.STOG, dummy.adr);
+                                    else gen.Emit(Op.STO, tab.curLevel-dummy.level, dummy.adr);.)
+    "{"
+    { "case" Expr<out type1>    (.if(type1 != type) SemErr("case type must match switch type");
+                                  if (dummy.level == 0) gen.Emit(Op.LOADG, dummy.adr);
+                                    else gen.Emit(Op.LOAD, tab.curLevel-dummy.level, dummy.adr); 
+                                  gen.Emit(Op.EQU); gen.Emit(Op.FJMP,0);caseaddr = gen.pc - 2; .)
+        ":"
+        [Stat]
+        ["break"                   (. gen.Emit(Op.JMP,0); breakaddrs.Add(gen.pc-2);
+                                      gen.Patch(caseaddr,gen.pc); .)
+        ]
+    }
+    [   "default" ":" 
+        [Stat]
+        ["break"                   (.gen.Emit(Op.JMP,0); breakaddrs.Add(gen.pc-2); .)
+        ]
+    ]
+    "}"                         (. foreach(int addr in breakaddrs) gen.Patch(addr,gen.pc); .)
+    .
+
+
 /*------------------------------------------------------------------------*/
 Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
-								int adr, adr2, loopstart; .)
+								int adr, adr2, loopstart; int dim = 0; .)
 = Ident<out name>        	(. obj = tab.Find(name); .)
-  ( ":="                  	(. if (obj.kind != var) SemErr("cannot assign to procedure");	//AN
+  ( 
+    "[" Expr<out type> "]"  (. if(obj.kind != arr)SemErr("object is not an array");
+                                if(type != integer)SemErr("index type must be integer");
+                                dim++;.) 
+    { "[" Expr<out type> "]" (. if(type != integer)SemErr("index type must be integer");
+                                dim++;.) 
+    }                        (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
+    ":="
+    Expr<out type>           (.if(type != obj.type) SemErr("types do not match");.)
+    ";"                      (. if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
+                                  else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+                                 gen.Emit(Op.ASSGARR); .)
+
+
+    |
+     ":="                  	(. if (obj.kind != var) SemErr("cannot assign to procedure");	//AN
 							 if (obj.mutability == immutable) SemErr("cannot reassign constant variable"); .)	//AN
     Expr<out type> 
     (';'                 (. if (type != obj.type) SemErr("incompatible types1");
@@ -189,6 +260,7 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
    ")" "{"
    Stat                     (.gen.Emit(Op.JMP,loopstart); gen.Patch(adr,gen.pc); .)
    "}"
+| Switch
 
 | "read"
   Ident<out name> ';'    (. obj = tab.Find(name);
@@ -207,13 +279,13 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
                                 else if(type == integer) gen.Emit(Op.WRITE);		//AN
 								else SemErr("expected type int or string"); .)		//AN
   } ';'  					(.gen.Emit(Op.NEWLINE);.)								//AN
-| '{' { Stat | VarDecl | ConstVarDecl } '}' .
+| '{' { Stat | VarDecl | ConstVarDecl | ArrayDecl} '}' .
 /*------------------------------------------------------------------------*/
 Tastier                  (. string name; .) // 
 = "program"
   Ident<out name>        (. tab.OpenScope(name); .)
   '{'
-  { ConstVarDecl | VarDecl | ProcDecl  }  //AN
+  { ConstVarDecl | VarDecl | ProcDecl | ArrayDecl  }  //AN
   '}'                    (. tab.CloseScope();
                             if (gen.progStart == -1) SemErr("main function never defined");
                          .).
