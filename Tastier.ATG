@@ -4,7 +4,7 @@ COMPILER Tastier //
       undef = 0, integer = 1, boolean = 2,str = 3;
 
    const int // object kinds
-      var = 0, proc = 1 , scope = 2 , arr = 3;
+      var = 0, proc = 1 , scope = 2 , arr = 3,record = 4,recvar = 5, recarr = 6;
   const int 
       mutable = 0, immutable = 1;
 
@@ -43,10 +43,11 @@ AddOp<out Op op>
   | '-'                  (. op = Op.SUB; .)
   ).
 /*----------------------------------//AN------------------------------------*/
-ArrayDecl                        (. int type; string name;Obj obj;int dim = 0; .) 
+ArrayDecl<int kind,string rec>       (. int type; string name;Obj obj;int dim = 0; .) 
 = "array" 
-    Type<out type>               (.if(type != integer)SemErr("array must be of int type"); .)
-    Ident<out name>              (. obj = tab.NewObj(name,arr,integer); .)
+    Type<out type>               (.if(type != integer 
+                                     && type != boolean)SemErr("array must be of int or boolean type"); .)
+    Ident<out name>              (. obj = tab.NewObj(name,kind,type,rec); .)
 
     "[" Expr<out type> "]"       (. if(type != integer)SemErr("array index must be of int type"); 
                                     dim++; .)
@@ -59,8 +60,8 @@ ArrayDecl                        (. int type; string name;Obj obj;int dim = 0; .
                                     gen.Emit(Op.ALLOCARR,dim);  obj.dimN = dim; .)
 .
 /*----------------------------------//AN------------------------------------*/
-ConstVarDecl			(. string name; int type; Obj obj; .)
-= "const" Ident<out name>	(. obj = tab.NewConstVar(name);  .)
+ConstVarDecl<int kind,string rec>  (. string name; int type; Obj obj; .)
+= "const" Ident<out name>	(. obj = tab.NewConstVar(name,kind,rec);  .)
 	":=" 
 	Expr<out type>		(. tab.assignType(name,type); 
 				  if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
@@ -74,24 +75,30 @@ Expr<out int type>       (. int type1; Op op; .)
                             gen.Emit(op); type = boolean; .)
   ].
 /*------------------------------------------------------------------------*/
-Factor<out int type>     (. int n; Obj obj; string name; string s;int dim = 0; .)
+Factor<out int type>     (. int n; Obj obj,obj2; string name; int dim = 0; .)
 =                        (. type = undef; .)
-  ( Ident<out name>      (. obj = tab.Find(name); type = obj.type;
-                            if (obj.kind != var && obj.kind != arr)SemErr("var or arr expexted"); .) 
-                                
-    [ "[" Expr<out type> "]"   (.if(type != integer)SemErr("integer type expected"); dim++;.)
-      { "[" Expr<out type> "]"   (.if(type != integer)SemErr("integer type expected"); dim++;.)
+( Ident<out name>      (. obj = tab.Find(name); type = obj.type;
+                            int k = obj.kind;
+
+                          .)
+[
+        "." Ident<out name>
+    |
+        "[" Expr<out type> "]"
+        { "[" Expr<out type> "]"
         }
-                            (.if(dim != obj.dimN){ 
-                                    Console.WriteLine("declared dim = " + obj.dimN  );
-                                    Console.WriteLine("accessed dim = " + dim);
-                                    SemErr("dimension of array does not match");
-                               }.)
-    ]
+    |
+        "->" Ident<out name>
+        "[" Expr<out type> "]"
+        { "[" Expr<out type> "]"
+        }
+]
                             (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
                                   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
-                              if(obj.kind == arr )gen.Emit(Op.ACCARR);.)
-    
+                              if( obj.type == str) gen.Emit(Op.STRINGR);
+                              .)
+                              
+
   | number               (. n = Convert.ToInt32(t.val); 
                             gen.Emit(Op.CONST, n); type = integer; .)
   | '-'
@@ -101,7 +108,11 @@ Factor<out int type>     (. int n; Obj obj; string name; string s;int dim = 0; .
                             gen.Emit(Op.NEG); .)
   | "true"               (. gen.Emit(Op.CONST, 1); type = boolean; .)
   | "false"              (. gen.Emit(Op.CONST, 0); type = boolean; .)
-  | string		  		 (. s = t.val; gen.EmitStr(s); type = str; .)  //AN
+  | string		  		 (. for(int ch = t.val.Length-1; ch >= 1; ch--){
+                                gen.Emit(Op.CONST,t.val[ch]);
+                            }
+                            gen.Emit(Op.CONST,t.val.Length-2);
+                            type = str; .)  //AN
   ).
 /*------------------------------------------------------------------------*/
 Ident<out string name>
@@ -113,11 +124,9 @@ MulOp<out Op op>
   | '/'                  (. op = Op.DIV; .)
   ).
 /*------------------------------------------------------------------------*/
-//ProcDecl               (. string name; Obj obj; int adr; .)                  ***
 ProcDecl                 (. string name; Obj obj; int adr, adr2; .)         // 
 = "void"
-  Ident<out name>        (. obj = tab.NewObj(name, proc, undef); obj.adr = gen.pc;
-//                          if (name == "Main") gen.progStart = gen.pc;        
+  Ident<out name>        (. obj = tab.NewObj(name, proc, undef,""); obj.adr = gen.pc;
                             if (name == "Main") {                           // 
                                obj.level= 0; gen.progStart = gen.pc;        // 
                             }                                               // 
@@ -125,16 +134,34 @@ ProcDecl                 (. string name; Obj obj; int adr, adr2; .)         //
                             tab.OpenScope(name); .)
   '(' ')'
   '{'                    (. gen.Emit(Op.ENTER, 0); adr = gen.pc - 2; .)
-  { ConstVarDecl | VarDecl | Stat | ArrayDecl   | 									 //AN
-			  (. gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2; .)      // 
+  { ConstVarDecl<var,""> | VarDecl<var,""> | Stat | ArrayDecl<arr,"">	 //AN
+                        			  (. gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2; .)      // 
     ProcDecl             (. gen.Patch(adr2, gen.pc); .)                     // 
   }                                                                         // 
   '}'                    (. gen.Emit(Op.LEAVE); gen.Emit(Op.RET);
                             gen.Patch(adr, tab.topScope.nextAdr);
 
                             Console.WriteLine("name\t|kind\t|type\t|lev\t|mut\t|addr");
-                            Console.WriteLine("----------------------------------------------");
+                            Console.WriteLine("----------------------------------------------\n");
                             tab.CloseScope(); .).
+/*------------------------------------------------------------------------*/
+Record              (.string name;  .)
+=
+ "record" Ident<out name>(. tab.NewObj(name,record,undef,""); 
+                                .)
+  
+  '{'                    
+ {( VarDecl<recvar,name>
+   |
+   ArrayDecl<recarr,name>
+   )}
+ "}"                       (.
+                            Console.WriteLine("name\t|kind\t|type\t|lev\t|mut\t|addr");
+                            Console.WriteLine("----------------------------------------------\n");
+                             .)
+
+.
+
 /*------------------------------------------------------------------------*/
 RelOp<out Op op>
 =                        (. op = Op.EQU; .) 
@@ -156,7 +183,7 @@ SimExpr<out int type>    (. int type1; Op op; .)
 
 /*------------------------------------------------------------------------*/
 Switch                          (.int type,type1,caseaddr;
-                                    Obj dummy = tab.NewObj("sw" + tab.nextUnused(),0,undef);
+                                    Obj dummy = tab.NewObj("sw" + tab.nextUnused(),0,undef,"");
                                     System.Collections.Generic.List<int> breakaddrs
                                     = new System.Collections.Generic.List<int>();.)
 = "switch" 
@@ -185,29 +212,21 @@ Switch                          (.int type,type1,caseaddr;
 
 /*------------------------------------------------------------------------*/
 Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
-								int adr, adr2, loopstart; int dim = 0; .)
+								int adr, adr2, loopstart,assg_start; int dim = 0;
+								bool array_access = false;.)
 = Ident<out name>        	(. obj = tab.Find(name); .)
-  ( 
-    "[" Expr<out type> "]"  (. if(obj.kind != arr)SemErr("object is not an array");
-                                if(type != integer)SemErr("index type must be integer");
-                                dim++;.) 
-    { "[" Expr<out type> "]" (. if(type != integer)SemErr("index type must be integer");
-                                dim++;.) 
-    }                        (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
-    ":="
-    Expr<out type>           (.if(type != obj.type) SemErr("types do not match");.)
-    ";"                      (. if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
-                                  else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
-                                 gen.Emit(Op.ASSGARR); .)
-
-
-    |
-     ":="                  	(. if (obj.kind != var) SemErr("cannot assign to procedure");	//AN
-							 if (obj.mutability == immutable) SemErr("cannot reassign constant variable"); .)	//AN
-    Expr<out type> 
-    (';'                 (. if (type != obj.type) SemErr("incompatible types1");
+(
+  ":="                    
+    Expr<out type>        (.if(type != obj.type) SemErr("types do not match");.)
+    (';'                 (.       
+                            
+                            if( type == str) gen.Emit(Op.HPTR);
+                            
                             if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-                               else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .) 
+                               else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
+                            if(type == str){
+                                gen.Emit(Op.HPTR);gen.Emit(Op.STRINGW);
+                            }.) 
     | "?"                (.if(type != boolean) SemErr("Expecting boolean condition");
                          gen.Emit(Op.FJMP,0); adr = gen.pc - 2;.)
     Expr<out type1>    (.if(obj.type != type1) SemErr("incompatible types2");
@@ -249,11 +268,12 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
    ":=" Expr<out type> ";" (.if(type != obj.type) SemErr("incompatible types");
                              if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
                              else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
-                                loopstart = gen.pc;.)
+                                gen.Emit(Op.JMP,0);assg_start = gen.pc-2; loopstart = gen.pc;.)
    Ident<out name>       (.obj2 = tab.Find(name); .)  
    ":=" Expr<out type1> ";"     (. if(type1 != obj2.type) SemErr("incompatible types");
                                   if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-                                  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .)
+                                  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
+                                  gen.Patch(assg_start,gen.pc);.)
    Expr<out type2>      (.if(type2 != boolean) SemErr("expecting boolean conditional");
                             gen.Emit(Op.FJMP,0); adr = gen.pc - 2;.)
  
@@ -272,20 +292,20 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
 
 | "write" 
   Expr<out type>      	(. 	if(type == str) gen.Emit(Op.SWRITE);					//AN
-                                else if(type == integer) gen.Emit(Op.WRITE);		//AN
+                            else if(type == integer) gen.Emit(Op.WRITE);		//AN
 								else SemErr("expected type int or string"); .)		//AN
 								
   {"," Expr<out type> (. 	if(type == str) gen.Emit(Op.SWRITE); 					//AN
-                                else if(type == integer) gen.Emit(Op.WRITE);		//AN
+                            else if(type == integer) gen.Emit(Op.WRITE);		//AN
 								else SemErr("expected type int or string"); .)		//AN
   } ';'  					(.gen.Emit(Op.NEWLINE);.)								//AN
-| '{' { Stat | VarDecl | ConstVarDecl | ArrayDecl} '}' .
+| '{' { Stat | VarDecl<var,""> | ConstVarDecl<var,""> | ArrayDecl<arr,"">} '}' .
 /*------------------------------------------------------------------------*/
 Tastier                  (. string name; .) // 
 = "program"
   Ident<out name>        (. tab.OpenScope(name); .)
   '{'
-  { ConstVarDecl | VarDecl | ProcDecl | ArrayDecl  }  //AN
+  { Record | ConstVarDecl<var,""> | VarDecl<var,""> | ProcDecl | ArrayDecl<arr,"">  }  //AN
   '}'                    (. tab.CloseScope();
                             if (gen.progStart == -1) SemErr("main function never defined");
                          .).
@@ -305,10 +325,10 @@ Type<out int type>
  | "string"                (. type = str; .) //AN
  ).
 /*------------------------------------------------------------------------*/
-VarDecl                  (. string name; int type; .)
+VarDecl<int kind,string rec>  (. string name; int type; .)
 = Type<out type>
-  Ident<out name>        (. tab.NewObj(name, var, type); .)
-  { ',' Ident<out name>  (. tab.NewObj(name, var, type); .)
+  Ident<out name>        (. tab.NewObj(name, kind, type,rec); .)
+  { ',' Ident<out name>  (. tab.NewObj(name, kind, type,rec); .)
   } ';'.
 
 END Tastier. // 

@@ -7,7 +7,7 @@ VarDecl =    Type ident {"," ident} ";".
 ProcDecl =   "void" ident "(" ")" "{" {VarDecl | Stat | ProcDecl} "}". //AN
 Type =       "int" | "bool | string". //AN
 ArrayDecl = "array" Type ident "[" Expr "]" { "[" Expr "]" } ";" .
-
+Record = "record" Ident "{" { (VarDecl |  ArrayDecl )} "}" .
 Stat =      
               ident (":=" Expr ( ";" | "?" Expr ":" Expr ";" )  | "(" ")" ";")
            | "if" "(" Expr ")" Stat ["else" Stat]

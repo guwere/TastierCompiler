@@ -10,7 +10,7 @@ public class Parser {
 	public const int _ident = 1;
 	public const int _number = 2;
 	public const int _string = 3;
-	public const int maxT = 44;
+	public const int maxT = 47;
 
 	const bool T = true;
 	const bool x = false;
@@ -27,7 +27,7 @@ const int // types
       undef = 0, integer = 1, boolean = 2,str = 3;
 
    const int // object kinds
-      var = 0, proc = 1 , scope = 2 , arr = 3;
+      var = 0, proc = 1 , scope = 2 , arr = 3,record = 4,recvar = 5, recarr = 6;
   const int 
       mutable = 0, immutable = 1;
 
@@ -101,16 +101,17 @@ const int // types
 		} else if (la.kind == 5) {
 			Get();
 			op = Op.SUB; 
-		} else SynErr(45);
+		} else SynErr(48);
 	}
 
-	void ArrayDecl() {
+	void ArrayDecl(int kind,string rec) {
 		int type; string name;Obj obj;int dim = 0; 
 		Expect(6);
 		Type(out type);
-		if(type != integer)SemErr("array must be of int type"); 
+		if(type != integer 
+		 && type != boolean)SemErr("array must be of int or boolean type"); 
 		Ident(out name);
-		obj = tab.NewObj(name,arr,integer); 
+		obj = tab.NewObj(name,kind,type,rec); 
 		Expect(7);
 		Expr(out type);
 		Expect(8);
@@ -133,16 +134,16 @@ const int // types
 
 	void Type(out int type) {
 		type = undef; 
-		if (la.kind == 41) {
+		if (la.kind == 44) {
 			Get();
 			type = integer; 
-		} else if (la.kind == 42) {
+		} else if (la.kind == 45) {
 			Get();
 			type = boolean; 
-		} else if (la.kind == 43) {
+		} else if (la.kind == 46) {
 			Get();
 			type = str; 
-		} else SynErr(46);
+		} else SynErr(49);
 	}
 
 	void Ident(out string name) {
@@ -161,11 +162,11 @@ const int // types
 		}
 	}
 
-	void ConstVarDecl() {
+	void ConstVarDecl(int kind,string rec) {
 		string name; int type; Obj obj; 
 		Expect(10);
 		Ident(out name);
-		obj = tab.NewConstVar(name);  
+		obj = tab.NewConstVar(name,kind,rec);  
 		Expect(11);
 		Expr(out type);
 		tab.assignType(name,type); 
@@ -189,66 +190,79 @@ const int // types
 	void RelOp(out Op op) {
 		op = Op.EQU; 
 		switch (la.kind) {
-		case 21: {
-			Get();
-			break;
-		}
-		case 22: {
-			Get();
-			op = Op.LSS; 
-			break;
-		}
-		case 23: {
-			Get();
-			op = Op.GTR; 
-			break;
-		}
 		case 24: {
 			Get();
-			op = Op.NEQ; 
 			break;
 		}
 		case 25: {
 			Get();
-			op = Op.LSE; 
+			op = Op.LSS; 
 			break;
 		}
 		case 26: {
 			Get();
+			op = Op.GTR; 
+			break;
+		}
+		case 27: {
+			Get();
+			op = Op.NEQ; 
+			break;
+		}
+		case 28: {
+			Get();
+			op = Op.LSE; 
+			break;
+		}
+		case 29: {
+			Get();
 			op = Op.GTE; 
 			break;
 		}
-		default: SynErr(47); break;
+		default: SynErr(50); break;
 		}
 	}
 
 	void Factor(out int type) {
-		int n; Obj obj; string name; string s;int dim = 0; 
+		int n; Obj obj,obj2; string name; int dim = 0; 
 		type = undef; 
 		switch (la.kind) {
 		case 1: {
 			Ident(out name);
 			obj = tab.Find(name); type = obj.type;
-			if (obj.kind != var && obj.kind != arr)SemErr("var or arr expexted"); 
-			if (la.kind == 7) {
-				Get();
-				Expr(out type);
-				Expect(8);
-				if(type != integer)SemErr("integer type expected"); dim++;
-				while (la.kind == 7) {
+			 int k = obj.kind;
+			
+			
+			if (la.kind == 7 || la.kind == 12 || la.kind == 13) {
+				if (la.kind == 12) {
+					Get();
+					Ident(out name);
+				} else if (la.kind == 7) {
 					Get();
 					Expr(out type);
 					Expect(8);
-					if(type != integer)SemErr("integer type expected"); dim++;
+					while (la.kind == 7) {
+						Get();
+						Expr(out type);
+						Expect(8);
+					}
+				} else {
+					Get();
+					Ident(out name);
+					Expect(7);
+					Expr(out type);
+					Expect(8);
+					while (la.kind == 7) {
+						Get();
+						Expr(out type);
+						Expect(8);
+					}
 				}
-				if(dim != obj.dimN){ 
-				Console.WriteLine("declared dim = " + obj.dimN  );
-				Console.WriteLine("accessed dim = " + dim);
-				SemErr("dimension of array does not match");}
 			}
 			if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
 			   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
-			if(obj.kind == arr )gen.Emit(Op.ACCARR);
+			if( obj.type == str) gen.Emit(Op.STRINGR);
+			
 			break;
 		}
 		case 2: {
@@ -266,127 +280,111 @@ const int // types
 			gen.Emit(Op.NEG); 
 			break;
 		}
-		case 12: {
+		case 14: {
 			Get();
 			gen.Emit(Op.CONST, 1); type = boolean; 
 			break;
 		}
-		case 13: {
+		case 15: {
 			Get();
 			gen.Emit(Op.CONST, 0); type = boolean; 
 			break;
 		}
 		case 3: {
 			Get();
-			s = t.val; gen.EmitStr(s); type = str; 
+			for(int ch = t.val.Length-1; ch >= 1; ch--){
+			           gen.Emit(Op.CONST,t.val[ch]);
+			       }
+			       gen.Emit(Op.CONST,t.val.Length-2);
+			       type = str; 
 			break;
 		}
-		default: SynErr(48); break;
+		default: SynErr(51); break;
 		}
 	}
 
 	void MulOp(out Op op) {
 		op = Op.MUL; 
-		if (la.kind == 14) {
+		if (la.kind == 16) {
 			Get();
-		} else if (la.kind == 15) {
+		} else if (la.kind == 17) {
 			Get();
 			op = Op.DIV; 
-		} else SynErr(49);
+		} else SynErr(52);
 	}
 
 	void ProcDecl() {
 		string name; Obj obj; int adr, adr2; 
-		Expect(16);
+		Expect(18);
 		Ident(out name);
-		obj = tab.NewObj(name, proc, undef); obj.adr = gen.pc;
-		//                          if (name == "Main") gen.progStart = gen.pc;        
+		obj = tab.NewObj(name, proc, undef,""); obj.adr = gen.pc;
 		if (name == "Main") {                           // 
 		  obj.level= 0; gen.progStart = gen.pc;        // 
 		}                                               // 
 		  else obj.level = tab.curLevel+1;             // 
 		tab.OpenScope(name); 
-		Expect(17);
-		Expect(18);
 		Expect(19);
+		Expect(20);
+		Expect(21);
 		gen.Emit(Op.ENTER, 0); adr = gen.pc - 2; 
 		while (StartOf(2)) {
 			if (la.kind == 10) {
-				ConstVarDecl();
-			} else if (la.kind == 41 || la.kind == 42 || la.kind == 43) {
-				VarDecl();
+				ConstVarDecl(var,"");
+			} else if (la.kind == 44 || la.kind == 45 || la.kind == 46) {
+				VarDecl(var,"");
 			} else if (StartOf(3)) {
 				Stat();
-			} else if (la.kind == 6) {
-				ArrayDecl();
 			} else {
+				ArrayDecl(arr,"");
 				gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2; 
 				ProcDecl();
 				gen.Patch(adr2, gen.pc); 
 			}
 		}
-		Expect(20);
+		Expect(22);
 		gen.Emit(Op.LEAVE); gen.Emit(Op.RET);
 		gen.Patch(adr, tab.topScope.nextAdr);
 		
 		Console.WriteLine("name\t|kind\t|type\t|lev\t|mut\t|addr");
-		Console.WriteLine("----------------------------------------------");
+		Console.WriteLine("----------------------------------------------\n");
 		tab.CloseScope(); 
 	}
 
-	void VarDecl() {
+	void VarDecl(int kind,string rec) {
 		string name; int type; 
 		Type(out type);
 		Ident(out name);
-		tab.NewObj(name, var, type); 
-		while (la.kind == 39) {
+		tab.NewObj(name, kind, type,rec); 
+		while (la.kind == 42) {
 			Get();
 			Ident(out name);
-			tab.NewObj(name, var, type); 
+			tab.NewObj(name, kind, type,rec); 
 		}
 		Expect(9);
 	}
 
 	void Stat() {
 		int type,type1,type2; string name; Obj obj,obj2;
-		int adr, adr2, loopstart; int dim = 0; 
+		int adr, adr2, loopstart,assg_start; int dim = 0;
+		bool array_access = false;
 		switch (la.kind) {
 		case 1: {
 			Ident(out name);
 			obj = tab.Find(name); 
-			if (la.kind == 7) {
+			if (la.kind == 11) {
 				Get();
-				Expr(out type);
-				Expect(8);
-				if(obj.kind != arr)SemErr("object is not an array");
-				if(type != integer)SemErr("index type must be integer");
-				dim++;
-				while (la.kind == 7) {
-					Get();
-					Expr(out type);
-					Expect(8);
-					if(type != integer)SemErr("index type must be integer");
-					dim++;
-				}
-				if(dim != obj.dimN)SemErr("number of dimensions do not match"); 
-				Expect(11);
 				Expr(out type);
 				if(type != obj.type) SemErr("types do not match");
-				Expect(9);
-				if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
-				 else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
-				gen.Emit(Op.ASSGARR); 
-			} else if (la.kind == 11) {
-				Get();
-				if (obj.kind != var) SemErr("cannot assign to procedure");	//AN
-				if (obj.mutability == immutable) SemErr("cannot reassign constant variable"); 
-				Expr(out type);
 				if (la.kind == 9) {
 					Get();
-					if (type != obj.type) SemErr("incompatible types1");
+					if( type == str) gen.Emit(Op.HPTR);
+					
 					if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-					  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
-				} else if (la.kind == 32) {
+					  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
+					if(type == str){
+					   gen.Emit(Op.HPTR);gen.Emit(Op.STRINGW);
+					}
+				} else if (la.kind == 35) {
 					Get();
 					if(type != boolean) SemErr("Expecting boolean condition");
 					gen.Emit(Op.FJMP,0); adr = gen.pc - 2;
@@ -396,7 +394,7 @@ const int // types
 					if (type1 != obj.type) SemErr("incompatible types3");
 					if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
 					else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
-					Expect(29);
+					Expect(32);
 					Expr(out type2);
 					if(obj.type != type2) SemErr("incompatible types4");
 					gen.Patch(adr,gen.pc);
@@ -404,25 +402,25 @@ const int // types
 					if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
 					else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
 					Expect(9);
-				} else SynErr(50);
-			} else if (la.kind == 17) {
+				} else SynErr(53);
+			} else if (la.kind == 19) {
 				Get();
-				Expect(18);
+				Expect(20);
 				Expect(9);
 				if (obj.kind != proc) SemErr("object is not a procedure");
 				  gen.Emit(Op.CALL, obj.level-tab.curLevel, obj.adr); 
-			} else SynErr(51);
+			} else SynErr(54);
 			break;
 		}
-		case 33: {
+		case 36: {
 			Get();
-			Expect(17);
+			Expect(19);
 			Expr(out type);
-			Expect(18);
+			Expect(20);
 			if (type != boolean) SemErr("boolean type expected");
 			  gen.Emit(Op.FJMP, 0); adr = gen.pc - 2; 
 			Stat();
-			if (la.kind == 34) {
+			if (la.kind == 37) {
 				Get();
 				gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2;
 				gen.Patch(adr, gen.pc); adr = adr2; 
@@ -431,21 +429,21 @@ const int // types
 			gen.Patch(adr, gen.pc); 
 			break;
 		}
-		case 35: {
+		case 38: {
 			Get();
 			loopstart = gen.pc; 
-			Expect(17);
+			Expect(19);
 			Expr(out type);
-			Expect(18);
+			Expect(20);
 			if (type != boolean) SemErr("boolean type expected");
 			  gen.Emit(Op.FJMP, 0); adr = gen.pc - 2; 
 			Stat();
 			gen.Emit(Op.JMP, loopstart); gen.Patch(adr, gen.pc); 
 			break;
 		}
-		case 36: {
+		case 39: {
 			Get();
-			Expect(17);
+			Expect(19);
 			Ident(out name);
 			obj = tab.Find(name); 
 			Expect(11);
@@ -454,7 +452,7 @@ const int // types
 			if(type != obj.type) SemErr("incompatible types");
 			if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
 			else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
-			  loopstart = gen.pc;
+			  gen.Emit(Op.JMP,0);assg_start = gen.pc-2; loopstart = gen.pc;
 			Ident(out name);
 			obj2 = tab.Find(name); 
 			Expect(11);
@@ -462,22 +460,23 @@ const int // types
 			Expect(9);
 			if(type1 != obj2.type) SemErr("incompatible types");
 			if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-			else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
+			else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
+			gen.Patch(assg_start,gen.pc);
 			Expr(out type2);
 			if(type2 != boolean) SemErr("expecting boolean conditional");
 			 gen.Emit(Op.FJMP,0); adr = gen.pc - 2;
-			Expect(18);
-			Expect(19);
+			Expect(20);
+			Expect(21);
 			Stat();
 			gen.Emit(Op.JMP,loopstart); gen.Patch(adr,gen.pc); 
-			Expect(20);
+			Expect(22);
 			break;
 		}
-		case 27: {
+		case 30: {
 			Switch();
 			break;
 		}
-		case 37: {
+		case 40: {
 			Get();
 			Ident(out name);
 			Expect(9);
@@ -489,47 +488,67 @@ const int // types
 			  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
 			break;
 		}
-		case 38: {
+		case 41: {
 			Get();
 			Expr(out type);
 			if(type == str) gen.Emit(Op.SWRITE);					//AN
-			    else if(type == integer) gen.Emit(Op.WRITE);		//AN
+			else if(type == integer) gen.Emit(Op.WRITE);		//AN
 			else SemErr("expected type int or string"); 
-			while (la.kind == 39) {
+			while (la.kind == 42) {
 				Get();
 				Expr(out type);
 				if(type == str) gen.Emit(Op.SWRITE); 					//AN
-				     else if(type == integer) gen.Emit(Op.WRITE);		//AN
+				 else if(type == integer) gen.Emit(Op.WRITE);		//AN
 				else SemErr("expected type int or string"); 
 			}
 			Expect(9);
 			gen.Emit(Op.NEWLINE);
 			break;
 		}
-		case 19: {
+		case 21: {
 			Get();
-			while (StartOf(4)) {
+			while (StartOf(2)) {
 				if (StartOf(3)) {
 					Stat();
-				} else if (la.kind == 41 || la.kind == 42 || la.kind == 43) {
-					VarDecl();
+				} else if (la.kind == 44 || la.kind == 45 || la.kind == 46) {
+					VarDecl(var,"");
 				} else if (la.kind == 10) {
-					ConstVarDecl();
+					ConstVarDecl(var,"");
 				} else {
-					ArrayDecl();
+					ArrayDecl(arr,"");
 				}
 			}
-			Expect(20);
+			Expect(22);
 			break;
 		}
-		default: SynErr(52); break;
+		default: SynErr(55); break;
 		}
+	}
+
+	void Record() {
+		string name;  
+		Expect(23);
+		Ident(out name);
+		tab.NewObj(name,record,undef,""); 
+		   
+		Expect(21);
+		while (StartOf(4)) {
+			if (la.kind == 44 || la.kind == 45 || la.kind == 46) {
+				VarDecl(recvar,name);
+			} else {
+				ArrayDecl(recarr,name);
+			}
+		}
+		Expect(22);
+		Console.WriteLine("name\t|kind\t|type\t|lev\t|mut\t|addr");
+		Console.WriteLine("----------------------------------------------\n");
+		
 	}
 
 	void Term(out int type) {
 		int type1; Op op; 
 		Factor(out type);
-		while (la.kind == 14 || la.kind == 15) {
+		while (la.kind == 16 || la.kind == 17) {
 			MulOp(out op);
 			Factor(out type1);
 			if (type != integer || type1 != integer) 
@@ -540,67 +559,69 @@ const int // types
 
 	void Switch() {
 		int type,type1,caseaddr;
-		 Obj dummy = tab.NewObj("sw" + tab.nextUnused(),0,undef);
+		 Obj dummy = tab.NewObj("sw" + tab.nextUnused(),0,undef,"");
 		 System.Collections.Generic.List<int> breakaddrs
 		 = new System.Collections.Generic.List<int>();
-		Expect(27);
-		Expect(17);
+		Expect(30);
+		Expect(19);
 		Expr(out type);
-		Expect(18);
+		Expect(20);
 		if(type != integer) SemErr("must have int type in case expr");
 		if (dummy.level == 0) gen.Emit(Op.STOG, dummy.adr);
 		else gen.Emit(Op.STO, tab.curLevel-dummy.level, dummy.adr);
-		Expect(19);
-		while (la.kind == 28) {
+		Expect(21);
+		while (la.kind == 31) {
 			Get();
 			Expr(out type1);
 			if(type1 != type) SemErr("case type must match switch type");
 			if (dummy.level == 0) gen.Emit(Op.LOADG, dummy.adr);
 			 else gen.Emit(Op.LOAD, tab.curLevel-dummy.level, dummy.adr); 
 			gen.Emit(Op.EQU); gen.Emit(Op.FJMP,0);caseaddr = gen.pc - 2; 
-			Expect(29);
+			Expect(32);
 			if (StartOf(3)) {
 				Stat();
 			}
-			if (la.kind == 30) {
+			if (la.kind == 33) {
 				Get();
 				gen.Emit(Op.JMP,0); breakaddrs.Add(gen.pc-2);
 				gen.Patch(caseaddr,gen.pc); 
 			}
 		}
-		if (la.kind == 31) {
+		if (la.kind == 34) {
 			Get();
-			Expect(29);
+			Expect(32);
 			if (StartOf(3)) {
 				Stat();
 			}
-			if (la.kind == 30) {
+			if (la.kind == 33) {
 				Get();
 				gen.Emit(Op.JMP,0); breakaddrs.Add(gen.pc-2); 
 			}
 		}
-		Expect(20);
+		Expect(22);
 		foreach(int addr in breakaddrs) gen.Patch(addr,gen.pc); 
 	}
 
 	void Tastier() {
 		string name; 
-		Expect(40);
+		Expect(43);
 		Ident(out name);
 		tab.OpenScope(name); 
-		Expect(19);
+		Expect(21);
 		while (StartOf(5)) {
-			if (la.kind == 10) {
-				ConstVarDecl();
-			} else if (la.kind == 41 || la.kind == 42 || la.kind == 43) {
-				VarDecl();
-			} else if (la.kind == 16) {
+			if (la.kind == 23) {
+				Record();
+			} else if (la.kind == 10) {
+				ConstVarDecl(var,"");
+			} else if (la.kind == 44 || la.kind == 45 || la.kind == 46) {
+				VarDecl(var,"");
+			} else if (la.kind == 18) {
 				ProcDecl();
 			} else {
-				ArrayDecl();
+				ArrayDecl(arr,"");
 			}
 		}
-		Expect(20);
+		Expect(22);
 		tab.CloseScope();
 		if (gen.progStart == -1) SemErr("main function never defined");
 		
@@ -618,12 +639,12 @@ const int // types
 	}
 	
 	static readonly bool[,] set = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,T, T,T,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,T,x,x, x,x,T,x, x,x,T,x, x,x,x,x, T,x,x,T, x,x,x,x, x,x,x,T, x,x,x,x, x,T,x,T, T,T,T,x, x,T,T,T, x,x},
-		{x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,T, x,x,x,x, x,T,x,T, T,T,T,x, x,x,x,x, x,x},
-		{x,T,x,x, x,x,T,x, x,x,T,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,T, x,x,x,x, x,T,x,T, T,T,T,x, x,T,T,T, x,x},
-		{x,x,x,x, x,x,T,x, x,x,T,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,T, x,x}
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,T,T, T,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,T,x,x, x,x,T,x, x,x,T,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,T,x, x,x,x,x, T,x,T,T, T,T,x,x, T,T,T,x, x},
+		{x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,T,x, x,x,x,x, T,x,T,T, T,T,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,T,x, x},
+		{x,x,x,x, x,x,T,x, x,x,T,x, x,x,x,x, x,x,T,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,T,x, x}
 
 	};
 } // end Parser
@@ -649,47 +670,50 @@ public class Errors {
 			case 9: s = "\";\" expected"; break;
 			case 10: s = "\"const\" expected"; break;
 			case 11: s = "\":=\" expected"; break;
-			case 12: s = "\"true\" expected"; break;
-			case 13: s = "\"false\" expected"; break;
-			case 14: s = "\"*\" expected"; break;
-			case 15: s = "\"/\" expected"; break;
-			case 16: s = "\"void\" expected"; break;
-			case 17: s = "\"(\" expected"; break;
-			case 18: s = "\")\" expected"; break;
-			case 19: s = "\"{\" expected"; break;
-			case 20: s = "\"}\" expected"; break;
-			case 21: s = "\"=\" expected"; break;
-			case 22: s = "\"<\" expected"; break;
-			case 23: s = "\">\" expected"; break;
-			case 24: s = "\"!=\" expected"; break;
-			case 25: s = "\"<=\" expected"; break;
-			case 26: s = "\">=\" expected"; break;
-			case 27: s = "\"switch\" expected"; break;
-			case 28: s = "\"case\" expected"; break;
-			case 29: s = "\":\" expected"; break;
-			case 30: s = "\"break\" expected"; break;
-			case 31: s = "\"default\" expected"; break;
-			case 32: s = "\"?\" expected"; break;
-			case 33: s = "\"if\" expected"; break;
-			case 34: s = "\"else\" expected"; break;
-			case 35: s = "\"while\" expected"; break;
-			case 36: s = "\"for\" expected"; break;
-			case 37: s = "\"read\" expected"; break;
-			case 38: s = "\"write\" expected"; break;
-			case 39: s = "\",\" expected"; break;
-			case 40: s = "\"program\" expected"; break;
-			case 41: s = "\"int\" expected"; break;
-			case 42: s = "\"bool\" expected"; break;
-			case 43: s = "\"string\" expected"; break;
-			case 44: s = "??? expected"; break;
-			case 45: s = "invalid AddOp"; break;
-			case 46: s = "invalid Type"; break;
-			case 47: s = "invalid RelOp"; break;
-			case 48: s = "invalid Factor"; break;
-			case 49: s = "invalid MulOp"; break;
-			case 50: s = "invalid Stat"; break;
-			case 51: s = "invalid Stat"; break;
-			case 52: s = "invalid Stat"; break;
+			case 12: s = "\".\" expected"; break;
+			case 13: s = "\"->\" expected"; break;
+			case 14: s = "\"true\" expected"; break;
+			case 15: s = "\"false\" expected"; break;
+			case 16: s = "\"*\" expected"; break;
+			case 17: s = "\"/\" expected"; break;
+			case 18: s = "\"void\" expected"; break;
+			case 19: s = "\"(\" expected"; break;
+			case 20: s = "\")\" expected"; break;
+			case 21: s = "\"{\" expected"; break;
+			case 22: s = "\"}\" expected"; break;
+			case 23: s = "\"record\" expected"; break;
+			case 24: s = "\"=\" expected"; break;
+			case 25: s = "\"<\" expected"; break;
+			case 26: s = "\">\" expected"; break;
+			case 27: s = "\"!=\" expected"; break;
+			case 28: s = "\"<=\" expected"; break;
+			case 29: s = "\">=\" expected"; break;
+			case 30: s = "\"switch\" expected"; break;
+			case 31: s = "\"case\" expected"; break;
+			case 32: s = "\":\" expected"; break;
+			case 33: s = "\"break\" expected"; break;
+			case 34: s = "\"default\" expected"; break;
+			case 35: s = "\"?\" expected"; break;
+			case 36: s = "\"if\" expected"; break;
+			case 37: s = "\"else\" expected"; break;
+			case 38: s = "\"while\" expected"; break;
+			case 39: s = "\"for\" expected"; break;
+			case 40: s = "\"read\" expected"; break;
+			case 41: s = "\"write\" expected"; break;
+			case 42: s = "\",\" expected"; break;
+			case 43: s = "\"program\" expected"; break;
+			case 44: s = "\"int\" expected"; break;
+			case 45: s = "\"bool\" expected"; break;
+			case 46: s = "\"string\" expected"; break;
+			case 47: s = "??? expected"; break;
+			case 48: s = "invalid AddOp"; break;
+			case 49: s = "invalid Type"; break;
+			case 50: s = "invalid RelOp"; break;
+			case 51: s = "invalid Factor"; break;
+			case 52: s = "invalid MulOp"; break;
+			case 53: s = "invalid Stat"; break;
+			case 54: s = "invalid Stat"; break;
+			case 55: s = "invalid Stat"; break;
 
 			default: s = "error " + n; break;
 		}

@@ -1,0 +1,43 @@
+ [ 
+    ["."                    (.if(obj.kind != record) SemErr("LHS of the dot must be a record");.)
+      Ident<out name>        (.obj2 = tab.Find(name); 
+                                if(obj2.kind != recarr && obj2.kind != recvar)
+                                 SemErr("RHS of the dot must must belong to a record");
+                                if(obj2.record_name != obj.name)
+                                 SemErr("RHS of the dot must belong to the record on the LHS");
+                                obj = obj2;.)
+    ]
+    [
+    "[" Expr<out type> "]"  (. if(obj.kind != arr && obj.kind != recarr)SemErr("object is not an array");
+                                if(type != integer)SemErr("index type must be integer");
+                                dim++; array_access = true;.) 
+     { "[" Expr<out type> "]" (. if(type != integer)SemErr("index type must be integer");
+                                dim++;.) 
+     }                       (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
+    ]
+  ]
+  
+  [(                            "[" Expr<out type> "]"   (.if(type != integer)SemErr("integer type expected"); dim++;.)
+      { "[" Expr<out type> "]"   (.if(type != integer)SemErr("integer type expected"); dim++;.)
+        }
+                            (.if(dim != obj.dimN){ 
+                                    Console.WriteLine("declared dim = " + obj.dimN  );
+                                    Console.WriteLine("accessed dim = " + dim);
+                                    SemErr("dimension of array does not match");
+                               }.)
+    
+    | "."                  (. if(obj.kind != record) SemErr("LHS of the dot must be a record name"); .)
+     Ident<out name>      (. obj2 = tab.Find(name); type = obj2.type; 
+                             if(obj2.kind != recarr && obj2.kind != recvar)
+                               SemErr("RHS of the dot must be a record object");
+                             if(obj2.record_name != obj.name)
+                               SemErr("RHS of the dot must belong to the record on the LHS");
+                               obj = obj2;.)
+  )]
+                            (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
+                                  else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+                              if( obj.type == str){
+                                gen.Emit(Op.STRINGR);
+                              }
+                              if(obj.kind == arr || obj.kind == recarr )gen.Emit(Op.ACCARR);.)
+  

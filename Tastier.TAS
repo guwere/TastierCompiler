@@ -4,12 +4,19 @@
 // up to these numbers.
 
 program Tastier {
-	int a;
+ record myrec{
+   int i; 
+   string s;
+    array int t[2];
+ }
+//	int a;
+//    array bool c[5];
 	void Main() {
-        int i;
-        i := 1;
-        int j;
-        j := 1;
+   
+  //      int i;
+    //    i := 1;
+      //  int j;
+       // j := 1;
 	/*    a := 100 + i;
         switch (i + 1 - 1) {
             case 4:
@@ -28,16 +35,28 @@ program Tastier {
 	
         write a;
         write i;*/
-        int k;
-        k := 23;
-        int f;
-        f := 24;
-        array int g [j+2];
-        array int h [3][i+2][5];
-        g[2] := 4;
-        h[3][4][5] := 5;
-        write g[2] + h[3][4][5] + h[0][1][2];
-    }
+      /* int x,y;
+       array int a[3][3];
+       for(x := 0; x := x + 1; x < 3){
+          for(y := 0; y := y + 1; y < 3){
+                a[x][y] := 2*x*y;
+         }
+       }
+       */
+       /*
+       for(x := 0; x := x + 1; x < 3){
+          for(y := 0; y := y + 1; y < 3){
+               write  a[x][y];
+         }
+       } */
+  string hello;
+  hello := "Hello";
+  string s;
+  s := hello;
+  write hello, " World!";
+  write "Give me high " , 5,s;
+  
+  }
 }
 
  

@@ -7,18 +7,20 @@ public class Obj {  // object describing a declared name
 	public string name;		// name of the object
 	public int type;			// type of the object (undef for proc)
 	public Obj	next;			// to next object in same scope
-	public int kind;      // var, proc, scope
+	public int kind;      // is the object a var,scope,etc
 	public int adr;				// address in memory or start of proc
 	public int level;			// nesting level; 0=global, 1=local
 	public Obj locals;		// scopes: to locally declared objects
 	public int nextAdr;		// scopes: next free address in this scope
 	public int mutability; //AN constant or non-constant
-    public int dimN;
+    public int dimN;      //number of dimensions of an array object
+    public string record_name; // name of the record the object belongs to if it 
+                                // was declared in a record
 }
 
 public class SymbolTable {
-	string [] types = new string [4]  {"Undef","Integer","Bool","String"};
-	string [] kinds = new string [4] {"Var" ,"Proc" ,"Scope","Array"};
+	string [] types = new string [4]  {"Undef  ","Integer","Bool   ","String "};
+	string [] kinds = new string [7] {"Var   " ,"Proc  " ,"Scope ","Array","Record","RecVar","RecArr"};
 	string [] levels = new string [2] {"Global" ," Local"};
 	string [] is_mutable= new string [2] {"Mutable" ," Constant"};
 
@@ -26,7 +28,7 @@ public class SymbolTable {
 		undef = 0, integer = 1, boolean = 2, str = 3;
 
 	const int // object kinds
-		var = 0, proc = 1, scope = 2,arr = 3;
+		var = 0, proc = 1, scope = 2,arr = 3, record = 4,recvar = 5,recarr = 6;
 	const int
 		immutable = 1 , mutable = 0;
 
@@ -79,9 +81,9 @@ public class SymbolTable {
 	}
 	
 	// create a new object node in the current scope
-	public Obj NewObj (string name, int kind, int type) {
+	public Obj NewObj (string name, int kind, int type,string rec) {
 		Obj p, last, obj = new Obj();
-		obj.name = name; obj.kind = kind; obj.type = type;
+		obj.name = name; obj.kind = kind; obj.type = type; obj.record_name = rec;
 		obj.level = curLevel;
 		p = topScope.locals; last = null;
 		while (p != null) { 
@@ -97,12 +99,9 @@ public class SymbolTable {
 	}
 
 	//-------------------------------------------AN------------------------------
-	// left the NewObj procedure as it is so I dont have to change the code elsewhere which calls NewObj
-	// make new object with explicit const/ non-const
-	//could have been generalized as well to  account for constant procedures in case of future extension i.e ones that cannot be overlapped
-	public Obj NewConstVar (string name){
+	public Obj NewConstVar (string name,int kind,string rec){
 		Obj obj;
-		obj = NewObj (name,var,undef);
+		obj = NewObj (name,kind,undef,rec);
 		obj.mutability = immutable;
 		return obj;
 	}
