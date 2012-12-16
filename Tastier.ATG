@@ -63,7 +63,7 @@ ArrayDecl<int kind,string rec>       (. int type; string name;Obj obj;int dim = 
 ConstVarDecl<int kind,string rec>  (. string name; int type; Obj obj; .)
 = "const" Ident<out name>	(. obj = tab.NewConstVar(name,kind,rec);  .)
 	":=" 
-	Expr<out type>		(. tab.assignType(name,type); 
+	Expr<out type>		(. tab.assignType(obj,type); 
 				  if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
 				    else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .)
 	';'.
@@ -75,26 +75,49 @@ Expr<out int type>       (. int type1; Op op; .)
                             gen.Emit(op); type = boolean; .)
   ].
 /*------------------------------------------------------------------------*/
-Factor<out int type>     (. int n; Obj obj,obj2; string name; int dim = 0; .)
+Factor<out int type>     (. int n; Obj obj,obj2; string name; int dim = 0;bool rec_access = false;.)
 =                        (. type = undef; .)
-( Ident<out name>      (. obj = tab.Find(name); type = obj.type;
-                            int k = obj.kind;
-
+( Ident<out name>      (. obj = tab.Find(name,""); type = obj.type;
+                            if(obj.kind == scope || obj.kind == proc)
+                                SemErr("object must be an array or a variable");
                           .)
 [
-        "." Ident<out name>
+    "."                     (. if(obj.kind != record) SemErr("LHS of the dot must be a record name"); .)
+    Ident<out name>      (. obj2 = tab.Find(name,obj.name); type = obj2.type; 
+                             if(obj2.kind != recvar)
+                               SemErr("RHS of the dot must be a var belonging to the record on the LHS");
+                             if(obj2.record_name != obj.name)
+                               SemErr("var RHS of the dot must belong to the record on the LHS");
+                               obj = obj2; rec_access = true;.)
+
     |
-        "[" Expr<out type> "]"
-        { "[" Expr<out type> "]"
-        }
-    |
-        "->" Ident<out name>
-        "[" Expr<out type> "]"
-        { "[" Expr<out type> "]"
-        }
-]
+        "[" Expr<out type> "]"       (. if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .)
+        { "[" Expr<out type> "]"   (. if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .)
+        }                          (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
+
+    |  
+        "->"                         (. if(obj.kind != record) SemErr("LHS of the dot must be a record name"); .)
+        Ident<out name>      (. obj2 = tab.Find(name,obj.name); type = obj2.type; 
+                             if(obj2.kind != recarr)
+                               SemErr("RHS of the arrow must be an array belonging to the record on the LHS");
+                             if(obj2.record_name != obj.name)
+                               SemErr("RHS of the arrow must be an array of the record on the LHS");
+                               obj = obj2; rec_access = true;.)
+         
+        "[" Expr<out type> "]"     (. if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .)
+        { "[" Expr<out type> "]" (. if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .)
+        }                       (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
+
+]                     (.if((obj.kind == recvar || obj.kind == recarr) && !rec_access)
+                                SemErr("object belongs to a record. Maybe prepend the record name?"); .)
+
                             (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
                                   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+                              if(obj.kind == recarr) gen.Emit(Op.ACCARR);
                               if( obj.type == str) gen.Emit(Op.STRINGR);
                               .)
                               
@@ -156,8 +179,6 @@ Record              (.string name;  .)
    ArrayDecl<recarr,name>
    )}
  "}"                       (.
-                            Console.WriteLine("name\t|kind\t|type\t|lev\t|mut\t|addr");
-                            Console.WriteLine("----------------------------------------------\n");
                              .)
 
 .
@@ -213,9 +234,45 @@ Switch                          (.int type,type1,caseaddr;
 /*------------------------------------------------------------------------*/
 Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
 								int adr, adr2, loopstart,assg_start; int dim = 0;
-								bool array_access = false;.)
-= Ident<out name>        	(. obj = tab.Find(name); .)
-(
+								bool rec_access = false;.)
+= Ident<out name>        	(. obj = tab.Find(name,""); .)
+( 
+  ["->"                   (. if(obj.kind != record) SemErr("LHS of the dot must be a record name"); .)
+   Ident<out name>     (. obj2 = tab.Find(name,obj.name); type = obj2.type; 
+                             if(obj2.kind != recarr)
+                               SemErr("RHS of the arrow  must be an array record object");
+                             if(obj2.record_name != obj.name)
+                               SemErr("RHS of the arrow must belong to the record on the LHS");
+                               obj = obj2;rec_access = true;.)
+  ]
+                                (.if(obj.kind == recarr && !rec_access)
+                                SemErr("object belongs to a record. Maybe prepend the record name?"); .)
+
+  
+  
+
+    "[" Expr<out type> "]"      (.if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .) 
+    { "[" Expr<out type> "]"    (. if(type != integer)SemErr("array index must be of int type"); 
+                                    dim++; .)
+    }                          (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
+
+    ":="                    (. .) 
+    Expr<out type>          (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
+                                  else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+                              gen.Emit(Op.ASSGARR); .)
+
+    ";"
+  |
+  [ "."                  (. if(obj.kind != record) SemErr("LHS of the dot must be a record name"); .)
+     Ident<out name>      (. obj2 = tab.Find(name,obj.name); type = obj2.type; 
+                             if(obj2.kind != recvar)
+                               SemErr("RHS of the dot must be a var record object");
+                             if(obj2.record_name != obj.name)
+                               SemErr("RHS of the dot must belong to the record on the LHS");
+                               obj = obj2;rec_access = true;.)
+ ]                         (.if(obj.kind == recvar && !rec_access)
+                                SemErr("object belongs to a record. Maybe prepend the record name?"); .)
   ":="                    
     Expr<out type>        (.if(type != obj.type) SemErr("types do not match");.)
     (';'                 (.       
@@ -264,12 +321,12 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
       Stat               (. gen.Emit(Op.JMP, loopstart); gen.Patch(adr, gen.pc); .)
 
 | "for"                 
-  "(" Ident<out name>    (. obj = tab.Find(name); .)
+  "(" Ident<out name>    (. obj = tab.Find(name,""); .)
    ":=" Expr<out type> ";" (.if(type != obj.type) SemErr("incompatible types");
                              if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
                              else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
                                 gen.Emit(Op.JMP,0);assg_start = gen.pc-2; loopstart = gen.pc;.)
-   Ident<out name>       (.obj2 = tab.Find(name); .)  
+   Ident<out name>       (.obj2 = tab.Find(name,""); .)  
    ":=" Expr<out type1> ";"     (. if(type1 != obj2.type) SemErr("incompatible types");
                                   if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
                                   else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
@@ -283,7 +340,7 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
 | Switch
 
 | "read"
-  Ident<out name> ';'    (. obj = tab.Find(name);
+  Ident<out name> ';'    (. obj = tab.Find(name,"");
                             if (obj.type != integer) SemErr("integer type expected");
                                gen.Emit(Op.READ);
                             if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);

@@ -87,11 +87,11 @@ public class SymbolTable {
 		obj.level = curLevel;
 		p = topScope.locals; last = null;
 		while (p != null) { 
-			if (p.name == name) parser.SemErr("name declared twice");
+			if (p.name == name && p.record_name == rec) parser.SemErr("name declared twice");
 			last = p; p = p.next;
 		}
 		if (last == null) topScope.locals = obj; else last.next = obj;
-		if (kind == var || kind == arr) {
+		if (kind == var || kind == arr || kind == recarr || kind == recvar) {
 		    obj.adr = topScope.nextAdr++;
 		    obj.mutability = mutable; //assume variables are not constant by default
 		}
@@ -106,21 +106,20 @@ public class SymbolTable {
 		return obj;
 	}
 	//assign the type of constant variable
-	public void assignType (string name, int type){
-		Obj obj = Find(name); 
+	public void assignType (Obj obj, int type){
 		if( obj.mutability != immutable) parser.SemErr("cannot reasign type of non-constant variable");
 		obj.type = type;
 	}
 	//END-------------------------------------------AN------------------------------
 	
 	// search the name in all open scopes and return its object node
-	public Obj Find (string name) {
+	public Obj Find (string name,string rec) {
 		Obj obj, scope;
 		scope = topScope;
 		while (scope != null) {  // for all open scopes
 			obj = scope.locals;
 			while (obj != null) {  // for all objects in this scope
-				if (obj.name == name) return obj;
+				if (obj.name == name && obj.record_name == rec) return obj;
 				obj = obj.next;
 			}
 			scope = scope.next;

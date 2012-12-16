@@ -169,7 +169,7 @@ const int // types
 		obj = tab.NewConstVar(name,kind,rec);  
 		Expect(11);
 		Expr(out type);
-		tab.assignType(name,type); 
+		tab.assignType(obj,type); 
 		if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
 		else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
 		Expect(9);
@@ -224,43 +224,70 @@ const int // types
 	}
 
 	void Factor(out int type) {
-		int n; Obj obj,obj2; string name; int dim = 0; 
+		int n; Obj obj,obj2; string name; int dim = 0;bool rec_access = false;
 		type = undef; 
 		switch (la.kind) {
 		case 1: {
 			Ident(out name);
-			obj = tab.Find(name); type = obj.type;
-			 int k = obj.kind;
-			
+			obj = tab.Find(name,""); type = obj.type;
+			 if(obj.kind == scope || obj.kind == proc)
+			     SemErr("object must be an array or a variable");
 			
 			if (la.kind == 7 || la.kind == 12 || la.kind == 13) {
 				if (la.kind == 12) {
 					Get();
+					if(obj.kind != record) SemErr("LHS of the dot must be a record name"); 
 					Ident(out name);
+					obj2 = tab.Find(name,obj.name); type = obj2.type; 
+					if(obj2.kind != recvar)
+					  SemErr("RHS of the dot must be a var belonging to the record on the LHS");
+					if(obj2.record_name != obj.name)
+					  SemErr("var RHS of the dot must belong to the record on the LHS");
+					  obj = obj2; rec_access = true;
 				} else if (la.kind == 7) {
 					Get();
 					Expr(out type);
 					Expect(8);
+					if(type != integer)SemErr("array index must be of int type"); 
+					dim++; 
 					while (la.kind == 7) {
 						Get();
 						Expr(out type);
 						Expect(8);
+						if(type != integer)SemErr("array index must be of int type"); 
+						dim++; 
 					}
+					if(dim != obj.dimN)SemErr("number of dimensions do not match"); 
 				} else {
 					Get();
+					if(obj.kind != record) SemErr("LHS of the dot must be a record name"); 
 					Ident(out name);
+					obj2 = tab.Find(name,obj.name); type = obj2.type; 
+					if(obj2.kind != recarr)
+					SemErr("RHS of the arrow must be an array belonging to the record on the LHS");
+					if(obj2.record_name != obj.name)
+					SemErr("RHS of the arrow must be an array of the record on the LHS");
+					obj = obj2; rec_access = true;
 					Expect(7);
 					Expr(out type);
 					Expect(8);
+					if(type != integer)SemErr("array index must be of int type"); 
+					dim++; 
 					while (la.kind == 7) {
 						Get();
 						Expr(out type);
 						Expect(8);
+						if(type != integer)SemErr("array index must be of int type"); 
+						dim++; 
 					}
+					if(dim != obj.dimN)SemErr("number of dimensions do not match"); 
 				}
 			}
+			if((obj.kind == recvar || obj.kind == recarr) && !rec_access)
+			       SemErr("object belongs to a record. Maybe prepend the record name?"); 
 			if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
 			   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+			if(obj.kind == recarr) gen.Emit(Op.ACCARR);
 			if( obj.type == str) gen.Emit(Op.STRINGR);
 			
 			break;
@@ -366,27 +393,70 @@ const int // types
 	void Stat() {
 		int type,type1,type2; string name; Obj obj,obj2;
 		int adr, adr2, loopstart,assg_start; int dim = 0;
-		bool array_access = false;
+		bool rec_access = false;
 		switch (la.kind) {
 		case 1: {
 			Ident(out name);
-			obj = tab.Find(name); 
-			if (la.kind == 11) {
-				Get();
+			obj = tab.Find(name,""); 
+			if (la.kind == 7 || la.kind == 13) {
+				if (la.kind == 13) {
+					Get();
+					if(obj.kind != record) SemErr("LHS of the dot must be a record name"); 
+					Ident(out name);
+					obj2 = tab.Find(name,obj.name); type = obj2.type; 
+					  if(obj2.kind != recarr)
+					    SemErr("RHS of the arrow  must be an array record object");
+					  if(obj2.record_name != obj.name)
+					    SemErr("RHS of the arrow must belong to the record on the LHS");
+					    obj = obj2;rec_access = true;
+				}
+				if(obj.kind == recarr && !rec_access)
+				SemErr("object belongs to a record. Maybe prepend the record name?"); 
+				Expect(7);
+				Expr(out type);
+				Expect(8);
+				if(type != integer)SemErr("array index must be of int type"); 
+				 dim++; 
+				while (la.kind == 7) {
+					Get();
+					Expr(out type);
+					Expect(8);
+					if(type != integer)SemErr("array index must be of int type"); 
+					dim++; 
+				}
+				if(dim != obj.dimN)SemErr("number of dimensions do not match"); 
+				Expect(11);
+				
+				Expr(out type);
+				if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
+				   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+				gen.Emit(Op.ASSGARR); 
+				Expect(9);
+			} else if (la.kind == 11 || la.kind == 12) {
+				if (la.kind == 12) {
+					Get();
+					if(obj.kind != record) SemErr("LHS of the dot must be a record name"); 
+					Ident(out name);
+					obj2 = tab.Find(name,obj.name); type = obj2.type; 
+					if(obj2.kind != recvar)
+					 SemErr("RHS of the dot must be a var record object");
+					if(obj2.record_name != obj.name)
+					 SemErr("RHS of the dot must belong to the record on the LHS");
+					 obj = obj2;rec_access = true;
+				}
+				if(obj.kind == recvar && !rec_access)
+				  SemErr("object belongs to a record. Maybe prepend the record name?"); 
+				Expect(11);
 				Expr(out type);
 				if(type != obj.type) SemErr("types do not match");
 				if (la.kind == 9) {
 					Get();
-					if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
-					 else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
+					if( type == str) gen.Emit(Op.HPTR);
 					
-					if( type == str){
-					gen.Emit(Op.HPTR);
-					}
 					if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-					else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
+					  else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
 					if(type == str){
-					gen.Emit(Op.HPTR);gen.Emit(Op.STRINGW);
+					   gen.Emit(Op.HPTR);gen.Emit(Op.STRINGW);
 					}
 				} else if (la.kind == 35) {
 					Get();
@@ -449,7 +519,7 @@ const int // types
 			Get();
 			Expect(19);
 			Ident(out name);
-			obj = tab.Find(name); 
+			obj = tab.Find(name,""); 
 			Expect(11);
 			Expr(out type);
 			Expect(9);
@@ -458,7 +528,7 @@ const int // types
 			else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
 			  gen.Emit(Op.JMP,0);assg_start = gen.pc-2; loopstart = gen.pc;
 			Ident(out name);
-			obj2 = tab.Find(name); 
+			obj2 = tab.Find(name,""); 
 			Expect(11);
 			Expr(out type1);
 			Expect(9);
@@ -484,7 +554,7 @@ const int // types
 			Get();
 			Ident(out name);
 			Expect(9);
-			obj = tab.Find(name);
+			obj = tab.Find(name,"");
 			if (obj.type != integer) SemErr("integer type expected");
 			  gen.Emit(Op.READ);
 			if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
