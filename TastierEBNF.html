@@ -1,39 +1,57 @@
 EBNF Grammar of Tastier
 
    
-Taste =      "program" ident "{" {VarDecl} {ProcDecl} "}".
+Tastier =  "program" ident "{"
+                 {Record | ConstVarDecl | VarDecl 
+                | RecordDecl | ArrayDecl | ProcDecl}
+           "}".
 ConstVarDecl = "const" ident ":=" Expr ";". //AN
 VarDecl =    Type ident {"," ident} ";".
-ProcDecl =   "void" ident "(" ")" "{" {VarDecl | Stat | ProcDecl} "}". //AN
-Type =       "int" | "bool | string". //AN
-ArrayDecl = "array" Type ident "[" Expr "]" { "[" Expr "]" } ";" .
-Record = "record" Ident "{" { (VarDecl |  ArrayDecl )} "}" .
+ArrayDecl = "array" Type ident ArrayPart ";" .
+ArrayPart = "[" Expr "]" { "[" Expr "]" }. 
+ProcDecl =   "void" ident "(" ")" "{" 
+                {RecordDecl | ArrayDecl | ConstVarDecl | VarDecl | Stat | ProcDecl}
+              "}". //AN
+
+RecordDecl = "new" ident ident ";" .
+RecordVarPart = "." ident .
+RecordArrPart = "->" ident .
+Record = "record" Ident "{" 
+            { (ConstVarDecl | VarDecl |  ArrayDecl )}
+          "}" .
 Stat =      
-              ident (":=" Expr ( ";" | "?" Expr ":" Expr ";" )  | "(" ")" ";")
-           | "if" "(" Expr ")" Stat ["else" Stat]
-           | "while "(" Expr ")" Stat
-           | "for" "("ident ":="  Expr ";" ident ":=" Expr ";" Expr ")" "{" Stat "}"   
-           | "read" ident ";"
-           | "write" Expr { "++" Expr} ";" //AN
-           | "{" {Stat | VarDecl  | ConstVarDecl} "}"). //AN
-
-Expr =       SimExpr [RelOp SimExpr].
-SimExpr =    Term {AddOp Term}.
-Term =       Factor {MulOp Factor}.
-Factor =     (ident | "true" | "false" | number | "-" Factor | string). //AN
-
-AddOp =      "+" | "-".
-MulOp =      "*" | "/".
-RelOp =      "=" | "<" | ">" | "!=" | "<=" | ">=". //AN
+        ident( [RecordArrPart] ArrayPart ":=" Expr ";"
+              |[RecordVarPart] ":=" Expr (
+                    ";" | "?" Expr ":" Expr ";")
+              | "("")" ";"    
+             )
+        | "if" "(" Expr ")" Stat ["else" Stat]
+        | "while "(" Expr ")" Stat
+        | "for" "("ident ":="  Expr ";" ident ":=" Expr ";" Expr ")" "{" Stat "}"   
+        |  Switch
+        | "read" ident ";"
+        | "write" Expr { "++" Expr} ";" //AN
+        | "{" {Stat | VarDecl  | ConstVarDecl} "}"). //AN
 
 Switch = "switch" "(" Expr ")" "{"
            [ "case" Expr ":"
                 [Stat]
-                [break]
+                    [break]
            ]
            [ "default" ":"
                 [Stat]
                 [break]
            ]
           "}"
+Expr =       SimExpr [RelOp SimExpr].
+SimExpr =    Term {AddOp Term}.
+Term =       Factor {MulOp Factor}.
+Factor =     (ident [RecordPart|ArrayPart|RecordArrPart ArrayPart]  
+              | "true" | "false" | number | "-" Factor | string). //AN
+
+Type =       "int" | "bool | string". //AN
+AddOp =      "+" | "-".
+MulOp =      "*" | "/".
+RelOp =      "=" | "<" | ">" | "!=" | "<=" | ">=". //AN
+
 

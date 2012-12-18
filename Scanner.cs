@@ -236,13 +236,13 @@ public class Scanner {
 		start[93] = 7; 
 		start[59] = 8; 
 		start[58] = 26; 
-		start[46] = 10; 
-		start[42] = 12; 
-		start[47] = 13; 
-		start[40] = 14; 
-		start[41] = 15; 
-		start[123] = 16; 
-		start[125] = 17; 
+		start[42] = 10; 
+		start[47] = 11; 
+		start[40] = 12; 
+		start[41] = 13; 
+		start[123] = 14; 
+		start[125] = 15; 
+		start[46] = 16; 
 		start[61] = 18; 
 		start[60] = 27; 
 		start[62] = 28; 
@@ -361,12 +361,12 @@ public class Scanner {
 
 	void CheckLiteral() {
 		switch (t.val) {
-			case "array": t.kind = 6; break;
+			case "array": t.kind = 8; break;
 			case "const": t.kind = 10; break;
-			case "true": t.kind = 14; break;
-			case "false": t.kind = 15; break;
-			case "void": t.kind = 18; break;
-			case "record": t.kind = 23; break;
+			case "true": t.kind = 12; break;
+			case "false": t.kind = 13; break;
+			case "void": t.kind = 16; break;
+			case "record": t.kind = 21; break;
 			case "new": t.kind = 24; break;
 			case "switch": t.kind = 31; break;
 			case "case": t.kind = 32; break;
@@ -429,29 +429,29 @@ public class Scanner {
 			case 5:
 				{t.kind = 4; break;}
 			case 6:
-				{t.kind = 7; break;}
+				{t.kind = 6; break;}
 			case 7:
-				{t.kind = 8; break;}
+				{t.kind = 7; break;}
 			case 8:
 				{t.kind = 9; break;}
 			case 9:
 				{t.kind = 11; break;}
 			case 10:
-				{t.kind = 12; break;}
+				{t.kind = 14; break;}
 			case 11:
-				{t.kind = 13; break;}
+				{t.kind = 15; break;}
 			case 12:
-				{t.kind = 16; break;}
-			case 13:
 				{t.kind = 17; break;}
+			case 13:
+				{t.kind = 18; break;}
 			case 14:
 				{t.kind = 19; break;}
 			case 15:
 				{t.kind = 20; break;}
 			case 16:
-				{t.kind = 21; break;}
-			case 17:
 				{t.kind = 22; break;}
+			case 17:
+				{t.kind = 23; break;}
 			case 18:
 				{t.kind = 25; break;}
 			case 19:
@@ -469,7 +469,7 @@ public class Scanner {
 				{t.kind = 43; break;}
 			case 25:
 				recEnd = pos; recKind = 5;
-				if (ch == '>') {AddCh(); goto case 11;}
+				if (ch == '>') {AddCh(); goto case 17;}
 				else {t.kind = 5; break;}
 			case 26:
 				recEnd = pos; recKind = 33;

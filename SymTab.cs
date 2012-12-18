@@ -3,6 +3,8 @@ using System;
 //Antonio Nikolov 10378197 Tutorial 4
 namespace Tastier {
 
+
+//AN
 public class Obj {  // object describing a declared name
 	public string name;		// name of the object
 	public int type;			// type of the object (undef for proc)
@@ -19,17 +21,19 @@ public class Obj {  // object describing a declared name
 }
 
 public class SymbolTable {
-	string [] types = new string [4]  {"Undef  ","Integer","Bool   ","String "};
+//AN++
+    string [] types = new string [4]  {"Undef  ","Integer","Bool   ","String "};
 	string [] kinds = new string [7] {"Var   " ,"Proc  " ,"Scope ","Array","Record","RecVar","RecArr"};
 	string [] levels = new string [2] {"Global" ," Local"};
 	string [] is_mutable= new string [2] {"Mutable" ," Constant"};
 
 	const int // types
 		undef = 0, integer = 1, boolean = 2, str = 3;
-
+//AN+
 	const int // object kinds
 		var = 0, proc = 1, scope = 2,arr = 3, record = 4,recvar = 5,recarr = 6;
-	const int
+//AN++
+    const int
 		immutable = 1 , mutable = 0;
 
     
@@ -61,13 +65,12 @@ public class SymbolTable {
 	
 	}
 
-
+//AN+
 	public void CloseScope () {
 		//Console.WriteLine("Closing the Scope of :" + topScope.name); // AN
 		Obj temp = topScope.locals;
 		topScope = topScope.next; curLevel--;
 
-		//-------------------------------------------AN------------------------------
 		while(temp != null){
 			Console.WriteLine( temp.name + 
 						"\t| " + kinds[temp.kind] + 
@@ -77,9 +80,9 @@ public class SymbolTable {
 						"\t| " + temp.adr);
 			temp = temp.next;
 		}
-		//END-------------------------------------------AN------------------------------
 	}
 	
+//AN+
 	// create a new object node in the current scope
 	public Obj NewObj (string name, int kind, int type,string rec) {
 		Obj p, last, obj = new Obj();
@@ -98,18 +101,22 @@ public class SymbolTable {
 	      return obj;
 	}
 
-	//-------------------------------------------AN------------------------------
+//AN++
 	public Obj NewConstObj(string name,int kind,string rec){
 		Obj obj;
 		obj = NewObj (name,kind,undef,rec);
 		obj.mutability = immutable;
 		return obj;
 	}
-	//assign the type of constant variable
+//AN++
+	//assign the type of the inferred constant variable
 	public void assignType (Obj obj, int type){
 		if( obj.mutability != immutable) parser.SemErr("cannot reasign type of non-constant variable");
 		obj.type = type;
 	}
+//AN++
+//  finds all the objects with record_name of name and makes a
+//  copy of each one in the symtab with the new record_name of name2 and the current scope
 	public Obj NewRecord(string name, string name2){
        Obj newRec = NewObj(name2,record,undef,"");  
        Obj obj, scope;
@@ -130,9 +137,10 @@ public class SymbolTable {
         return newRec;
  
     }
-	//END-------------------------------------------AN------------------------------
 	
-	// search the name in all open scopes and return its object node
+//AN
+//  objects now searched by their name and the record they belong to.
+//  object that were not declared inside a record belong to the empty "" record
 	public Obj Find (string name,string rec) {
 		Obj obj, scope;
 		scope = topScope;
