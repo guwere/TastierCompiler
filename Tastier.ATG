@@ -61,11 +61,17 @@ ArrayDecl<int kind,string rec>       (. int type; string name;Obj obj;int dim = 
 .
 /*----------------------------------//AN------------------------------------*/
 ConstVarDecl<int kind,string rec>  (. string name; int type; Obj obj; .)
-= "const" Ident<out name>	(. obj = tab.NewConstVar(name,kind,rec);  .)
+= "const" Ident<out name>	(. obj = tab.NewConstObj(name,kind,rec);  .)
 	":=" 
 	Expr<out type>		(. tab.assignType(obj,type); 
-				  if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-				    else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); .)
+	                        if( type == str) gen.Emit(Op.HPTR);
+                            
+                            if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+                               else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
+                            if(type == str){
+                                gen.Emit(Op.HPTR);gen.Emit(Op.STRINGW);
+                                }
+				  .)
 	';'.
 /*END--------------------------------AN--------------------------------------*/
 Expr<out int type>       (. int type1; Op op; .)
@@ -117,7 +123,7 @@ Factor<out int type>     (. int n; Obj obj,obj2; string name; int dim = 0;bool r
 
                             (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
                                   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
-                              if(obj.kind == recarr) gen.Emit(Op.ACCARR);
+                              if(obj.kind == recarr || obj.kind == arr) gen.Emit(Op.ACCARR);
                               if( obj.type == str) gen.Emit(Op.STRINGR);
                               .)
                               
@@ -147,19 +153,19 @@ MulOp<out Op op>
   | '/'                  (. op = Op.DIV; .)
   ).
 /*------------------------------------------------------------------------*/
-ProcDecl                 (. string name; Obj obj; int adr, adr2; .)         // 
+ProcDecl<out string name>  (.Obj obj; int adr, adr2;string dontcare; .)         // 
 = "void"
   Ident<out name>        (. obj = tab.NewObj(name, proc, undef,""); obj.adr = gen.pc;
                             if (name == "Main") {                           // 
-                               obj.level= 0; gen.progStart = gen.pc;        // 
+                               obj.level= 0;         // 
                             }                                               // 
                                else obj.level = tab.curLevel+1;             // 
                             tab.OpenScope(name); .)
   '(' ')'
   '{'                    (. gen.Emit(Op.ENTER, 0); adr = gen.pc - 2; .)
-  { ConstVarDecl<var,""> | VarDecl<var,""> | Stat | ArrayDecl<arr,"">	 //AN
-                        			  (. gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2; .)      // 
-    ProcDecl             (. gen.Patch(adr2, gen.pc); .)                     // 
+  { RecordDecl | ConstVarDecl<var,""> | VarDecl<var,""> | Stat | ArrayDecl<arr,""> |	 //AN
+                       			  (. gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2; .)      // 
+    ProcDecl<out dontcare>  (. gen.Patch(adr2, gen.pc); .)                     // 
   }                                                                         // 
   '}'                    (. gen.Emit(Op.LEAVE); gen.Emit(Op.RET);
                             gen.Patch(adr, tab.topScope.nextAdr);
@@ -170,19 +176,27 @@ ProcDecl                 (. string name; Obj obj; int adr, adr2; .)         //
 /*------------------------------------------------------------------------*/
 Record              (.string name;  .)
 =
- "record" Ident<out name>(. tab.NewObj(name,record,undef,""); 
-                                .)
-  
+ "record" Ident<out name>(. tab.NewObj(name,record,undef,""); .)
   '{'                    
  {( VarDecl<recvar,name>
    |
    ArrayDecl<recarr,name>
+   |
+   ConstVarDecl<recvar,name>
    )}
- "}"                       (.
-                             .)
-
+ "}"  
 .
-
+/*------------------------------------------------------------------------*/
+RecordDecl            (. string name,name2; .)
+=
+ "new"
+ Ident<out name>      
+ Ident<out name2>     (.if(name == name2)
+                            SemErr("name of record variable must be different from the original");
+                        tab.NewRecord(name,name2);
+                       .)
+ ";"
+ .
 /*------------------------------------------------------------------------*/
 RelOp<out Op op>
 =                        (. op = Op.EQU; .) 
@@ -257,7 +271,7 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
                                     dim++; .)
     }                          (. if(dim != obj.dimN)SemErr("number of dimensions do not match"); .)
 
-    ":="                    (. .) 
+    ":="                     
     Expr<out type>          (.if (obj.level == 0) gen.Emit(Op.LOADG, obj.adr);
                                   else gen.Emit(Op.LOAD, tab.curLevel-obj.level, obj.adr); 
                               gen.Emit(Op.ASSGARR); .)
@@ -273,9 +287,9 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
                                obj = obj2;rec_access = true;.)
  ]                         (.if(obj.kind == recvar && !rec_access)
                                 SemErr("object belongs to a record. Maybe prepend the record name?"); .)
-  ":="                    
-    Expr<out type>        (.if(type != obj.type) SemErr("types do not match");.)
-    (';'                 (.       
+  ":="                   (. if(obj.mutability == immutable)SemErr("cannot reasign constant object" ); .) 
+    Expr<out type>        
+    (';'                 (.  if(type != obj.type) SemErr("types do not match");     
                             
                             if( type == str) gen.Emit(Op.HPTR);
                             
@@ -322,12 +336,14 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
 
 | "for"                 
   "(" Ident<out name>    (. obj = tab.Find(name,""); .)
-   ":=" Expr<out type> ";" (.if(type != obj.type) SemErr("incompatible types");
+   ":="                (. if(obj.mutability == immutable)SemErr("cannot reasign constant object" ); .) 
+   Expr<out type> ";" (.if(type != obj.type) SemErr("incompatible types");
                              if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
                              else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr); 
                                 gen.Emit(Op.JMP,0);assg_start = gen.pc-2; loopstart = gen.pc;.)
-   Ident<out name>       (.obj2 = tab.Find(name,""); .)  
-   ":=" Expr<out type1> ";"     (. if(type1 != obj2.type) SemErr("incompatible types");
+   Ident<out name>       (.obj2 = tab.Find(name,""); .)
+   ":="                (. if(obj2.mutability == immutable)SemErr("cannot reasign constant object" ); .) 
+   Expr<out type1> ";"     (. if(type1 != obj2.type) SemErr("incompatible types");
                                   if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
                                   else gen.Emit(Op.STO, tab.curLevel-obj.level, obj.adr);
                                   gen.Patch(assg_start,gen.pc);.)
@@ -356,15 +372,23 @@ Stat                     	(. int type,type1,type2; string name; Obj obj,obj2;
                             else if(type == integer) gen.Emit(Op.WRITE);		//AN
 								else SemErr("expected type int or string"); .)		//AN
   } ';'  					(.gen.Emit(Op.NEWLINE);.)								//AN
-| '{' { Stat | VarDecl<var,""> | ConstVarDecl<var,""> | ArrayDecl<arr,"">} '}' .
+| '{' { Stat | RecordDecl | VarDecl<var,""> | ConstVarDecl<var,""> | ArrayDecl<arr,"">} '}' .
 /*------------------------------------------------------------------------*/
-Tastier                  (. string name; .) // 
+Tastier                  (. string name;int adr;bool main_declared = false; .) // 
 = "program"
   Ident<out name>        (. tab.OpenScope(name); .)
   '{'
-  { Record | ConstVarDecl<var,""> | VarDecl<var,""> | ProcDecl | ArrayDecl<arr,"">  }  //AN
+  { Record 
+  | ConstVarDecl<var,""> 
+  | VarDecl<var,""> 
+  | RecordDecl
+  |         (.adr = gen.pc; gen.Emit(Op.NOP);gen.Emit(Op.NOP);gen.Emit(Op.NOP);.)
+  ProcDecl<out name>  (.if(name != "Main") gen.PatchInstruction(adr,Op.JMP,gen.pc);
+                        else main_declared  = true;
+                         .)
+  | ArrayDecl<arr,"">  }  //AN
   '}'                    (. tab.CloseScope();
-                            if (gen.progStart == -1) SemErr("main function never defined");
+                            if (!main_declared) SemErr("main function never defined");
                          .).
 /*------------------------------------------------------------------------*/
 Term<out int type>       (. int type1; Op op; .)

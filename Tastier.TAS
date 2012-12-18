@@ -4,32 +4,39 @@
 // up to these numbers.
 
 program Tastier {
- record myrec{
-    array int hah[4];
-    int x,y,z;
- }
-	int x,z;
-	void Main() {
+    record myrec{
+        const gg := 34;
+        int x,y,z;
+    }
+    void myfunc(){
+        write 55;
+    }
+    const c1 := "What up?";
+    void Main() {
+        const c2 := false;
+        write c1;
+        new myrec myrec2;
+        myrec.x := 5;   
+        write myrec.x;
+        myrec2.x := 33;
+        write myrec2.x;
+        int x,y;
+        y := 1 < 2 ? 1 : 2;
+        write y;
+        array int big[4][3+1][2+2][1+3];
+        big[1][2][1][0] := 66;
+        write big[1][2][1][0];
+        myfunc();
+        
+/*    
 
-	int y;
-	/*
-	myrec.y := 4;
-	myrec.x := 5;
-	myrec.z := 6;
-	x := 7;
-	z := 8;
-	write myrec.x;
-	write myrec.z;
-	write myrec.y;
-	y := 3;
-	write y;
-	*/
+*/	
 
- /*
-        int i,j,a;
+ 
+        int i,j,aa;
         i := 1;
         j := 1;
-	    a := 100 + i;
+	    aa := 100 + i;
         switch (i + 1 - 1) {
             case 4:
                 write 1;
@@ -45,31 +52,30 @@ program Tastier {
                 break
         }
 	
-        write a;
+        write aa;
         write i;
-*/
- /*       int x,y;
+
        array int a[3][3];
        for(x := 0; x := x + 1; x < 3){
           for(y := 0; y := y + 1; y < 3){
-                a[x][y] := 2*x*y;
+                a[x][y] := x+y;
          }
        }
-   */    
-       /*
+       
+       
        for(x := 0; x := x + 1; x < 3){
           for(y := 0; y := y + 1; y < 3){
                write  a[x][y];
          }
-       } */
-/*
+       } 
+
   string hello;
   hello := "Hello";
   string s;
   s := hello;
   write hello, " World!";
-  write "Give me high " , 5,s;
-  */
+  write "Give me high " , 5;
+  
   }
 }
 

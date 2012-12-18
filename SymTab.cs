@@ -99,7 +99,7 @@ public class SymbolTable {
 	}
 
 	//-------------------------------------------AN------------------------------
-	public Obj NewConstVar (string name,int kind,string rec){
+	public Obj NewConstObj(string name,int kind,string rec){
 		Obj obj;
 		obj = NewObj (name,kind,undef,rec);
 		obj.mutability = immutable;
@@ -110,6 +110,26 @@ public class SymbolTable {
 		if( obj.mutability != immutable) parser.SemErr("cannot reasign type of non-constant variable");
 		obj.type = type;
 	}
+	public Obj NewRecord(string name, string name2){
+       Obj newRec = NewObj(name2,record,undef,"");  
+       Obj obj, scope;
+		scope = topScope;
+		while (scope != null) {  // for all open scopes
+			obj = scope.locals;
+			while (obj != null) {  // for all objects in this scope
+				if (obj.record_name == name){
+                    if(obj.mutability == mutable)
+                        NewObj(obj.name,obj.kind,obj.type,name2);
+                    else
+                        NewConstObj(obj.name,obj.kind,name2);
+                }
+				obj = obj.next;
+			}
+			scope = scope.next;
+        }
+        return newRec;
+ 
+    }
 	//END-------------------------------------------AN------------------------------
 	
 	// search the name in all open scopes and return its object node
