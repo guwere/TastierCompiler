@@ -30,7 +30,7 @@ Stat =
         | "for" "("ident ":="  Expr ";" ident ":=" Expr ";" Expr ")" "{" Stat "}"   
         |  Switch
         | "read" ident ";"
-        | "write" Expr { "++" Expr} ";" //AN
+        | "write" Expr { "," Expr} ";" //AN
         | "{" {Stat | VarDecl  | ConstVarDecl} "}"). //AN
 
 Switch = "switch" "(" Expr ")" "{"
@@ -53,5 +53,4 @@ Type =       "int" | "bool | string". //AN
 AddOp =      "+" | "-".
 MulOp =      "*" | "/".
 RelOp =      "=" | "<" | ">" | "!=" | "<=" | ">=". //AN
-
 
