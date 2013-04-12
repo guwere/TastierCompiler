@@ -3,7 +3,6 @@ cocor_compiler
 
 Use of Coco/R as practical exercise for Compiler Design Theory course
 
-Antonio Nikolov 10378197 CS3071 Final Assignment Report
 Abbreviations
 codegen - Code Generator
 symtab - Symbol Table
